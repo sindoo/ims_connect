@@ -1,0 +1,5 @@
+export default {
+  TUITION: 'TUITION',
+  CANTEEN: 'CANTEEN',
+  TRANSPORT: 'TRANSPORT',
+};
