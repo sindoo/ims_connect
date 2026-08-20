@@ -72,7 +72,10 @@ const LoginForm = ({
                                 password: '',
                             }}
                             validationSchema={loginFormSchema}
-                            onSubmit={() => {}}>
+                            onSubmit={data => {
+                                onSubmit(data);
+                            }}
+                        >
                             {formikProps => (
                                 <>
                                     <TextInput

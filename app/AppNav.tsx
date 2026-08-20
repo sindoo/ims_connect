@@ -9,7 +9,7 @@ import {StyleSheet} from 'react-native';
 const AppNav = () => {
     const {i18n} = useTranslation();
     const {languageSelected} = useSelector((state: any) => state.language);
-    const {userToken, onBoardingStatus} = useSelector((state: any) => state.user);
+    const {userToken} = useSelector((state: any) => state.user);
 
     useEffect(() => {
         i18n.changeLanguage(languageSelected).catch((error) => console.log(error));
@@ -19,9 +19,15 @@ const AppNav = () => {
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
                 <GestureHandlerRootView style={{flex: 1}}>
-                    <Stack>
-                       {/* <Stack.Screen name="index" options={{ headerShown: false }} />*/}
-                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    <Stack
+                        screenOptions={{
+                            headerShown: false,
+                            //animation: "none"
+                        }}
+                    >
+                        <Stack.Protected guard={!(userToken !== null)}>
+                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                        </Stack.Protected>
                         <Stack.Protected guard={userToken !== null}>
                             <Stack.Screen name="(drawer)" options={{headerShown: false}} />
                         </Stack.Protected>

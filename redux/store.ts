@@ -7,8 +7,17 @@ import {
 import {persistReducer} from 'redux-persist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import userReducer from './features/userSlice';
-import languageReducer from "./features/language/languageSlice";
-import studentReducer from './features/student/studentSlice';
+import childReducer from './features/child/childSlice';
+import appointmentReducer from './features/appointment/appointmentSlice';
+import employeeReducer from './features/employee/employeeSlice';
+import languageReducer from './features/language/languageSlice';
+import messageReducer from './features/message/messageSlice';
+import notificationReducer from './features/notification/notificationSlide';
+import bookReducer from './features/book/bookSlice';
+import miniclubReducer from './features/club/miniClubSlice';
+import marketingReducer from './features/marketing/marketingSlice';
+import alertMessageReducer from './features/alertmessage/alertMessageSlide';
+import stackReducer from './features/stack/stackSlice';
 
 const persistConfig = {
     key: 'root',
@@ -18,8 +27,17 @@ const persistConfig = {
 
 const reducer = combineReducers({
     user: userReducer,
+    child: childReducer,
+    appointment: appointmentReducer,
+    employee: employeeReducer,
     language: languageReducer,
-    student: studentReducer,
+    messageCenter: messageReducer,
+    notification: notificationReducer,
+    book: bookReducer,
+    miniclub: miniclubReducer,
+    marketing: marketingReducer,
+    alertMessage: alertMessageReducer,
+    stackScreen:stackReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, reducer);

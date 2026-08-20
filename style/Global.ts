@@ -92,5 +92,12 @@ export const globalStyles = StyleSheet.create({
         top: 2,
         zIndex: 10,
         backgroundColor: COLORS.white,
-    }
+    },
+
+    drawerLinkItem: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.gray,
+        marginLeft: 5,
+    },
 });
