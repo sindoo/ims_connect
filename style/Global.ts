@@ -96,8 +96,7 @@ export const globalStyles = StyleSheet.create({
 
     drawerLinkItem: {
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: '800',
         color: COLORS.gray,
-        marginLeft: 5,
     },
 });

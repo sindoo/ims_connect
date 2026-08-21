@@ -67,7 +67,7 @@ export default {
         background: '#ffffff',
         navBackground: '#ffffff',
         tabIconColor: '#868686',
-        tabIconColorFocused: '#3F51B5',
+        tabIconColorFocused: '#2A88C9',
         uiBackground: '#d6d5e1',
         notificationIconColor: '#CFCFCF',
         drawerIconColor: '#868686',

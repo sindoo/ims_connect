@@ -3,12 +3,18 @@
     "scheme": "imsconnect",
     "name": "ims_connect",
     "slug": "ims_connect",
-    "version": "1.2.0",
+    "version": "35.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.appstore.IMS",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +24,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.sindoo.ims_connect"
+      "package": "ims.connect.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,7 +33,18 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-localization"
+      "expo-localization",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-background.png",
+          "color": "#ffffff"
+        }
+      ]
     ]
   }
 }

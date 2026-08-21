@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import {BASEURL_MSG_NOTIF} from './appUrl';
-import {jsVersion} from "react-native-reanimated/lib/typescript/reanimated2/platform-specific/jsVersion";
 
 // LOCAL CONFIG
 const AXIOS_BASEURL = 'https://hostlinguere.net:8443/api/v1'; // GOOD

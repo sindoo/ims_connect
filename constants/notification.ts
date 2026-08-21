@@ -1,4 +1,4 @@
-//import {ROUTES} from "./index";
+import {ROUTES} from "./index";
 
 export const NOTIFICATION_TAG_EN: any = [
   {

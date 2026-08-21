@@ -3,13 +3,14 @@ import {View, Text, StyleSheet, Platform, useColorScheme, Pressable, TouchableOp
 import {COLORS, IMAGES} from "../../../constants";
 import {StatusBar} from "expo-status-bar";
 import {ImageBackground, Image} from "expo-image";
-import {Badge, useNavigation} from "expo-router";
+import {useNavigation} from "expo-router";
 import {MaterialIcons} from "@expo/vector-icons";
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import {BASEURL_IMG} from "../../../api/appUrl";
 import {changeAppLanguage} from "../../../redux/features/language/languageSlice";
 import LanguageComponent from "./LanguageComponent";
+import {Badge} from "react-native-paper";
 
 const IMS_WEBSITE = 'https://www.ivorymontessorischool.com/';
 
@@ -95,7 +96,6 @@ const CustomHeader = ({ title }) => {
                                     style={{zIndex: 10}}
                                     theme={{colors: {primary: COLORS.primary}}}>
                                     {notificationNumber}
-                                    0
                                 </Badge>
                                 <MaterialIcons
                                     name="notifications"

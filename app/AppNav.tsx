@@ -5,11 +5,13 @@ import {useTranslation} from "react-i18next";
 import {useSelector} from "react-redux";
 import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
 import {StyleSheet} from 'react-native';
+import CustomHeaderWithOutBackButton from "../components/ui/header/CustomHeaderWithOutBackButton";
 
 const AppNav = () => {
     const {i18n} = useTranslation();
     const {languageSelected} = useSelector((state: any) => state.language);
     const {userToken} = useSelector((state: any) => state.user);
+    const {t} = useTranslation();
 
     useEffect(() => {
         i18n.changeLanguage(languageSelected).catch((error) => console.log(error));
@@ -21,7 +23,7 @@ const AppNav = () => {
                 <GestureHandlerRootView style={{flex: 1}}>
                     <Stack
                         screenOptions={{
-                            headerShown: false,
+                            //headerShown: false,
                             //animation: "none"
                         }}
                     >
@@ -29,6 +31,18 @@ const AppNav = () => {
                             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                         </Stack.Protected>
                         <Stack.Protected guard={userToken !== null}>
+                            <Stack.Screen
+                                name="index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithOutBackButton
+                                                title={t('profile_choice.title')}
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
                             <Stack.Screen name="(drawer)" options={{headerShown: false}} />
                         </Stack.Protected>
                     </Stack>

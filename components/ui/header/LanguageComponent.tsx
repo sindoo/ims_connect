@@ -1,7 +1,6 @@
 import {
   Keyboard,
   Modal,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
@@ -12,6 +11,7 @@ import React from 'react';
 import {useTranslation} from 'react-i18next';
 import {MaterialIcons} from "@expo/vector-icons";
 import {COLORS, LANGUAGE_EN, LANGUAGE_FR} from "../../../constants";
+import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
 
 export default function LanguageComponent({
   modal,
@@ -28,35 +28,37 @@ export default function LanguageComponent({
 
   return (
     <Modal visible={modal} animationType="slide" style={{marginTop: 100}}>
-      <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalTitle}>
-              <Text style={styles.modalTitleText}>
-                {t('settings.language_choice')}
-              </Text>
+      <SafeAreaProvider>
+        <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitle}>
+                <Text style={styles.modalTitleText}>
+                  {t('settings.language_choice')}
+                </Text>
+              </View>
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <MaterialIcons
+                    name="close"
+                    size={22}
+                    color={COLORS.gray}
+                    onPress={() => {
+                      setModal(false);
+                    }}
+                />
+              </TouchableWithoutFeedback>
             </View>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <MaterialIcons
-                name="close"
-                size={22}
-                color={COLORS.gray}
-                onPress={() => {
-                  setModal(false);
-                }}
-              />
-            </TouchableWithoutFeedback>
-          </View>
 
-          <View style={styles.modalContent}>
-            <LanguageItem
-              data={i18n.language === 'en' ? LANGUAGE_EN : LANGUAGE_FR}
-              onSelect={(value: any) => handleLanguageChange(value)}
-              defaultValue={languageValue}
-            />
+            <View style={styles.modalContent}>
+              <LanguageItem
+                  data={i18n.language === 'en' ? LANGUAGE_EN : LANGUAGE_FR}
+                  onSelect={(value: any) => handleLanguageChange(value)}
+                  defaultValue={languageValue}
+              />
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

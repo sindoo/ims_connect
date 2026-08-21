@@ -5,7 +5,7 @@ export default {
     HOME: 'Home',
     HOME_TAB: 'Home_Tab',
     HOME_STACK: 'Home_stack',
-    HOME_DRAWER: 'Home_Drawer',
+    HOME_DRAWER: '(drawer)',
 
     IMS_DAY_TAB: 'MyImsDay',
 

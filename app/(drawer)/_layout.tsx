@@ -5,6 +5,7 @@ import {useTranslation} from "react-i18next";
 import {Drawer} from "expo-router/drawer";
 import {MaterialIcons} from "@expo/vector-icons";
 import {globalStyles} from "../../style/Global";
+import DrawerHeaderContent from "../../components/drawer/DrawerHeaderContent";
 
 
 const DrawerLayout = () => {
@@ -13,24 +14,68 @@ const DrawerLayout = () => {
     const {t} = useTranslation();
 
     return (
-        <Drawer>
+        <Drawer
+            drawerContent={(props: any) => <DrawerHeaderContent {...props} />}
+        >
             <Drawer.Screen
-                name="(tabs)" // This is the name of the page and must match the url from root
+                name="(tabs)"
                 options={{
-                    drawerLabel: 'Accueil',
-                    title: 'home',
+                    drawerLabel: t('home.title'),
                     headerShown: false,
                     drawerIcon: () => (
-                        <MaterialIcons name="home" size={26} color={theme.drawerIconColor} /> as any
+                        <MaterialIcons name="home" size={24} color={theme.drawerIconColor} /> as any
                     ),
                     drawerLabelStyle: globalStyles.drawerLinkItem,
                     drawerItemStyle: {
                         marginTop: 0,
-                        marginBottom: 0,
+                        marginBottom: -5,
+                        padding: 0,
                     },
                     drawerActiveTintColor: COLORS.white,
                     drawerStyle: {
-                        width: '78%',
+                        width: '75%',
+                    },
+                }}
+            />
+
+            <Drawer.Screen
+                name="profile"
+                options={{
+                    drawerLabel: t('drawer.profile'),
+                    headerShown: false,
+                    drawerIcon: () => (
+                        <MaterialIcons name="person" size={24} color={theme.drawerIconColor} /> as any
+                    ),
+                    drawerLabelStyle: globalStyles.drawerLinkItem,
+                    drawerItemStyle: {
+                        marginTop: 0,
+                        marginBottom: -5,
+                        padding: 0,
+                    },
+                    drawerActiveTintColor: COLORS.white,
+                    drawerStyle: {
+                        width: '75%',
+                    },
+                }}
+            />
+
+            <Drawer.Screen
+                name="password"
+                options={{
+                    drawerLabel: t('drawer.edit_password'),
+                    headerShown: false,
+                    drawerIcon: () => (
+                        <MaterialIcons name="password" size={24} color={theme.drawerIconColor} /> as any
+                    ),
+                    drawerLabelStyle: globalStyles.drawerLinkItem,
+                    drawerItemStyle: {
+                        marginTop: 0,
+                        marginBottom: -5,
+                        padding: 0,
+                    },
+                    drawerActiveTintColor: COLORS.white,
+                    drawerStyle: {
+                        width: '75%',
                     },
                 }}
             />
