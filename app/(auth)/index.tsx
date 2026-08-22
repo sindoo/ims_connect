@@ -6,10 +6,10 @@ import {useEffect, useState} from "react";
 import {loginUser} from "../../redux/features/userSlice";
 import {useDispatch} from "react-redux";
 import {useTranslation} from "react-i18next";
-import {postRequest, putRequest} from "../../api/ApiManager";
-import {setUserFCMToken} from "../../redux/features/user/userSlice";
+import {postRequest, putRequest, setAuthToken} from "../../api/ApiManager";
+import {setUserFCMToken, setUserSliceToken} from "../../redux/features/user/userSlice";
 import {getUserChildren} from "../../redux/features/child/childSlice";
-import messaging from "@react-native-firebase/messaging";
+import {getFcmToken} from "../../services/notificationService";
 
 const Login = () => {
     const router = useRouter();
@@ -28,37 +28,30 @@ const Login = () => {
                 password: data.password.trim(),
             });
 
-            /*const authStatus = await messaging().requestPermission();
-            const enabled =
-                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-            if (enabled) {
-                messaging()
-                    .getToken()
-                    .then(async fcmToken => {
-                        const dataToSend = {
-                            userId: response.user.id,
-                            mobileToken: fcmToken,
-                            mobileLang: i18n.language,
-                        };
-                        await putRequest('', '/public/auth/parent/device', dataToSend);
-                        dispatch(setUserFCMToken(fcmToken));
-
-                    }).catch(e => {
-                    console.log(e);
-                    setButtonStatus(false);
-                });
+            // Génération + enregistrement du token FCM, isolés dans leur propre try/catch
+            // pour ne pas bloquer la connexion si ça échoue
+            try {
+                const fcmToken = await getFcmToken();
+                if (fcmToken) {
+                    await putRequest('', '/public/auth/parent/device', {
+                        userId: response.user.id,
+                        mobileToken: fcmToken,
+                        mobileLang: i18n.language,
+                    });
+                    dispatch(setUserFCMToken(fcmToken));
+                }
+                else {
+                    console.log('Aucun token FCM disponible (permission non accordée ?)');
+                }
             }
-            else {
-                console.log('Not Authorization status:', authStatus);
-            }*/
+            catch (fcmError) {
+                console.log('Erreur lors de l\'enregistrement du token FCM :', fcmError);
+            }
 
-            //dispatch(changeStack(false));
-            //dispatch(changeFirstLog(true));
             dispatch(loginUser(response));
             dispatch(getUserChildren(response));
-            setButtonStatus(false);
+            setAuthToken(response.token);
+            dispatch(setUserSliceToken(response.token));
 
         }
         catch (error: any) {
@@ -69,16 +62,8 @@ const Login = () => {
                 setErrorMessage(t('login.acces_error'));
             }
             setButtonStatus(false);
-            console.log(error);
+            console.log(JSON.stringify(error));
         }
-
-        /*setButtonStatus(true);
-        const userInfo = {
-            user: [],
-            token: "jajshayyqwq.dsdowiwyewe00.yyweyweyyuw",
-        };
-        dispatch(loginUser(userInfo));
-        setButtonStatus(false);*/
     }
 
     useEffect(() => {

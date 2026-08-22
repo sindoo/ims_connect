@@ -15,6 +15,7 @@ const DrawerLayout = () => {
 
     return (
         <Drawer
+            id="DRAWER_ID"
             drawerContent={(props: any) => <DrawerHeaderContent {...props} />}
         >
             <Drawer.Screen

@@ -5,7 +5,12 @@ import React, {useEffect} from "react";
 import AppNav from "./AppNav";
 import { getApp } from "@react-native-firebase/app";
 import { getMessaging, setBackgroundMessageHandler } from "@react-native-firebase/messaging";
-import {notificationListener, requestUserPermission} from "../services/notificationService";
+import {
+    notificationListener,
+    notificationResponseListener,
+    requestUserPermission,
+    setupNotificationChannel
+} from "../services/notificationService";
 
 try {
     const messagingInstance = getMessaging(getApp());
@@ -21,21 +26,23 @@ const RootLayout = () => {
     useEffect(() => {
         // 🟢 Initialisation globale des notifications lors du montage de l'application
         const initNotifications = async () => {
+            await setupNotificationChannel();
             const hasPermission = await requestUserPermission();
             if (hasPermission) {
                 // Attacher les écouteurs de notifications (Foreground, Background-Click, Initial Notification)
-                const unsubscribe = notificationListener();
-                return unsubscribe;
+                const unsubscribeFcm = notificationListener();
+                const unsubscribeResponse = notificationResponseListener();
+                return () => {
+                    unsubscribeFcm();
+                    unsubscribeResponse.remove();
+                };
+                //return unsubscribe;
             }
         };
 
-        const unsubscribePromise = initNotifications();
-
+        const cleanupPromise = initNotifications();
         return () => {
-            // Nettoyage de l'écouteur lors du démontage
-            unsubscribePromise.then((unsubscribe) => {
-                if (unsubscribe) unsubscribe();
-            });
+            cleanupPromise.then((cleanup) => cleanup && cleanup());
         };
     }, []);
 

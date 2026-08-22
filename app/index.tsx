@@ -9,6 +9,7 @@ import {BASEURL_IMG} from "../api/appUrl";
 import {changeChild} from "../redux/features/child/childSlice";
 import {useRouter} from "expo-router";
 import Loading from "../components/ui/Loading";
+import {Image} from "expo-image";
 
 const ProfileChoice = () => {
     const [buttonStatus, setButtonStatus] = useState(false);
@@ -20,7 +21,6 @@ const ProfileChoice = () => {
 
     const handleSelectChildProfile = (child: any) => {
         dispatch(changeChild(child));
-        //navigation.navigate(ROUTES.HOME_DRAWER);
         router.push(ROUTES.HOME_DRAWER);
     };
 
@@ -39,10 +39,10 @@ const ProfileChoice = () => {
         <ViewThemed style={globalStyles.container}>
             <ScrollView style={styles.profileContainer}>
                 <View style={styles.containerProfileChoice}>
-                    {children.length > 1 &&
+                    {children && children.length > 1 &&
                         children.map((child: any) => {
                             return (
-                                <View style={styles.profileItemContainer} key={child?.id}>
+                                <View style={styles.profileItemContainer} key={child?.person?.id}>
                                     <Card borderRaduis={6}>
                                         <TouchableOpacity
                                             onPress={() => handleSelectChildProfile(child)}>
@@ -57,7 +57,7 @@ const ProfileChoice = () => {
                                                                 }
                                                                 : IMAGES.avatar
                                                         }
-                                                        resizeMode="cover"
+                                                        contentFit="cover"
                                                         style={styles.profileImageCover}
                                                     />
                                                 </View>

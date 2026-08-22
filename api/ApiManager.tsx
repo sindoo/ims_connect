@@ -3,7 +3,7 @@ import axios from 'axios';
 import {BASEURL_MSG_NOTIF} from './appUrl';
 
 // LOCAL CONFIG
-const AXIOS_BASEURL = 'https://hostlinguere.net:8443/api/v1'; // GOOD
+const AXIOS_BASEURL = 'https://ivorymontessorisystem.com/imsv3/api/v1'; // GOOD
 
 // AWS CONFIG
 //axios.defaults.baseURL = 'https://ivorymontessorisystem.com:8443/api/v1';

@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, TouchableOpacity, Text} from "react-native";
 import {DrawerContentScrollView, DrawerItem, DrawerItemList} from "expo-router/drawer";
 import {COLORS, IMAGES} from "../../constants";
@@ -13,7 +13,7 @@ import {initializeTeacherValue} from "../../redux/features/employee/employeeSlic
 import {initializeNotification} from "../../redux/features/notification/notificationSlide";
 import {initializeDiscussion} from "../../redux/features/message/messageSlice";
 import {logoutUser} from "../../redux/features/userSlice";
-import {useNavigation} from "expo-router";
+import { DrawerActions } from 'expo-router/react-navigation';
 import DrawerHeaderItem from "./DrawerHeaderItem";
 import {Image} from "expo-image";
 
@@ -26,7 +26,8 @@ const DrawerHeaderContent = (props) => {
     const [childList, setChildList] = useState(false);
     const {t} = useTranslation();
     const dispatch = useDispatch();
-    const navigation = useNavigation();
+    //const navigation = useNavigation();
+    const { navigation } = props;
 
     const handleIconChange = () => {
         setChildList(!childList);
@@ -34,13 +35,13 @@ const DrawerHeaderContent = (props) => {
 
     const handleChangeChild = (childSelected: any) => {
         const findChild = children.filter(
-            (child: any) => child?.id === childSelected?.id,
+            (child: any) => child?.person?.id === childSelected?.id,
         );
 
         if(findChild.length > 0){
             dispatch(changeChild(findChild[0]));
         }
-        //navigation.dispatch(DrawerActions.closeDrawer());
+
         navigation.closeDrawer();
     };
 
@@ -54,6 +55,32 @@ const DrawerHeaderContent = (props) => {
         dispatch(logoutUser());
         navigation.closeDrawer();
     };
+
+    useEffect(() => {
+        try {
+            const fetchData = () => {
+                if (children.length > 0 && selectedChild !== null) {
+                    const childrenSelect = selectedChild?.person;
+                    const listChildWithoutSelected = children.filter(
+                        (child: any) => child?.person?.id !== childrenSelect?.id,
+                    );
+                    const sibilings = listChildWithoutSelected.map((item: any) => {
+                        return {...item?.person, classe: item?.eleves[0]?.classe.nom};
+                    });
+                    setChildrenData(sibilings);
+                    setChildrenSelected(selectedChild?.person);
+                    setChildrenSelectedClass(selectedChild?.eleves[0]?.classe.nom);
+                } else {
+                    setChildrenData([]);
+                }
+            };
+            fetchData();
+        }
+        catch (error) {
+            console.log(error);
+        }
+
+    }, [selectedChild]);
 
     return (
         <DrawerContentScrollView {...props} style={{flex: 1}}>

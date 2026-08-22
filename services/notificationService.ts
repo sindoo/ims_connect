@@ -9,8 +9,31 @@ import {
     getInitialNotification,
 } from '@react-native-firebase/messaging';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 const messagingInstance = getMessaging(getApp());
+
+// Comment la notif doit se comporter si elle arrive pendant que l'app est ouverte
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+    }),
+});
+
+// Canal obligatoire sur Android 8+ pour que la notif s'affiche correctement
+export async function setupNotificationChannel() {
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+        });
+    }
+}
 
 // 1. Demander les permissions
 export async function requestUserPermission() {
@@ -32,11 +55,7 @@ export async function requestUserPermission() {
             authStatus === AuthorizationStatus.AUTHORIZED ||
             authStatus === AuthorizationStatus.PROVISIONAL;
 
-        if (enabled) {
-            console.log('Statut d\'autorisation:', authStatus);
-            await getFcmToken();
-        }
-
+        console.log('Statut d\'autorisation:', authStatus);
         return enabled;
     } catch (e) {
         console.warn('Firebase Messaging non disponible sur cet environnement :', e);
@@ -50,12 +69,13 @@ export async function getFcmToken() {
         const fcmToken = await getToken(messagingInstance);
         if (fcmToken) {
             console.log('Ton FCM Token Firebase :', fcmToken);
-            // TODO: envoyer ce token à ton backend
             return fcmToken;
         }
         console.log('Aucun token reçu');
+        return null;
     } catch (error) {
         console.error('Erreur lors de la récupération du token FCM :', error);
+        return null;
     }
 }
 
@@ -63,10 +83,15 @@ export async function getFcmToken() {
 export function notificationListener() {
     const unsubscribe = onMessage(messagingInstance, async (remoteMessage) => {
         console.log('Notification reçue en premier plan :', remoteMessage);
-        Alert.alert(
-            remoteMessage.notification?.title || 'Nouvelle notification',
-            remoteMessage.notification?.body || ''
-        );
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: remoteMessage.notification?.title ?? 'Nouvelle notification',
+                body: remoteMessage.notification?.body ?? '',
+                data: remoteMessage.data, // pour retrouver le payload au clic
+                sound: true,
+            },
+            trigger: null, // null = affichage immédiat
+        });
     });
 
     onNotificationOpenedApp(messagingInstance, (remoteMessage) => {
@@ -80,4 +105,12 @@ export function notificationListener() {
     });
 
     return unsubscribe;
+}
+
+export function notificationResponseListener() {
+    return Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        console.log('Notification locale tapée en foreground :', data);
+        // ex: router.push(`/enfant/${data.childId}`)
+    });
 }

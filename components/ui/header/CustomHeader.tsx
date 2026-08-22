@@ -3,7 +3,6 @@ import {View, Text, StyleSheet, Platform, useColorScheme, Pressable, TouchableOp
 import {COLORS, IMAGES} from "../../../constants";
 import {StatusBar} from "expo-status-bar";
 import {ImageBackground, Image} from "expo-image";
-import {useNavigation} from "expo-router";
 import {MaterialIcons} from "@expo/vector-icons";
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
@@ -11,6 +10,7 @@ import {BASEURL_IMG} from "../../../api/appUrl";
 import {changeAppLanguage} from "../../../redux/features/language/languageSlice";
 import LanguageComponent from "./LanguageComponent";
 import {Badge} from "react-native-paper";
+import { useNavigation, DrawerActions } from 'expo-router/react-navigation';
 
 const IMS_WEBSITE = 'https://www.ivorymontessorischool.com/';
 
@@ -46,8 +46,7 @@ const CustomHeader = ({ title }) => {
     };
 
     const openDrawMenu = () => {
-        navigation.openDrawer();
-        //navigation.dispatch(DrawerActions.toggleDrawer());
+        navigation.dispatch(DrawerActions.toggleDrawer());
     };
 
     useEffect(() => {
@@ -106,14 +105,6 @@ const CustomHeader = ({ title }) => {
                             </Pressable>
                         </View>
                         <Pressable onPress={openDrawMenu} style={styles.avatarContainer}>
-                            <Image
-                                source={
-                                    childrenSelected?.photo !== ''
-                                        ? {uri: `${BASEURL_IMG}/${childrenSelected?.photo}`}
-                                        : IMAGES.avatar
-                                }
-                                style={styles.avatar}
-                            />
                             {childrenSelected !== null && (
                                 <Image
                                     source={
