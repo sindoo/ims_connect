@@ -144,11 +144,15 @@ const styles = StyleSheet.create({
         height: 75,
         overflow: 'hidden',
         marginTop: 0,
+        borderBottomColor: COLORS.greyMedium,
+        borderBottomWidth: 1
     },
     containerAndroid: {
         height: 75,
         overflow: 'hidden',
         marginTop: 0,
+        borderBottomColor: COLORS.greyMedium,
+        borderBottomWidth: 1
     },
 
     smallLogoHeader: {

@@ -97,7 +97,7 @@ export default function TabLayout() {
             />
 
             <Tabs.Screen
-                name="appointment/index"
+                name="appointment"
                 options={{
                     title: t('appointment.title'),
                     headerTintColor: theme.tabIconColorFocused,
@@ -136,7 +136,6 @@ export default function TabLayout() {
                     },
                 }}
             />
-
         </Tabs>
     );
 }
