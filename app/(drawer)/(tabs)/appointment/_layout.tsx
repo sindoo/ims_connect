@@ -17,6 +17,7 @@ import {getEmployeesTeacher} from "../../../../redux/features/employee/employeeS
 import AppointmentService from "../../../../services/AppointmentService";
 import {setAllAppointmentList, setPresetAppointmentList} from "../../../../redux/features/appointment/appointmentSlice";
 import {checkAppState, checkTokenExpired} from "../../../../services/GeneralService";
+import Loading from "../../../../components/ui/Loading";
 
 const { Navigator } = createMaterialTopTabNavigator();
 export const MaterialTopTabs = withLayoutContext<
@@ -82,10 +83,12 @@ const AppointmentLayout = () => {
         };
     }, [selectedChild]);
 
+    if (loading) {
+        return <Loading />;
+    }
+
     return (
-        <ViewThemed
-            style={{...globalStyles.container}}
-        >
+        <ViewThemed style={{...globalStyles.container}}>
             <MaterialTopTabs
                 screenOptions={{
                     swipeEnabled: false,
@@ -98,6 +101,7 @@ const AppointmentLayout = () => {
                     tabBarStyle: {
                         backgroundColor: COLORS.white,
                         borderBottomColor: COLORS.white,
+                        height: 53,
                     },
                     tabBarIndicatorStyle: {
                         borderBottomColor: COLORS.secondary,

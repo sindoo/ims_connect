@@ -18,6 +18,7 @@ import miniclubReducer from './features/club/miniClubSlice';
 import marketingReducer from './features/marketing/marketingSlice';
 import alertMessageReducer from './features/alertmessage/alertMessageSlide';
 import stackReducer from './features/stack/stackSlice';
+import tuitionReducer from './features/tuition/tuitionSlice';
 
 const persistConfig = {
     key: 'root',
@@ -38,6 +39,7 @@ const reducer = combineReducers({
     marketing: marketingReducer,
     alertMessage: alertMessageReducer,
     stackScreen:stackReducer,
+    tuition: tuitionReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, reducer);
@@ -46,7 +48,8 @@ export const store = configureStore({
     reducer: persistedReducer,
     middleware: getDefaultMiddleware => getDefaultMiddleware({
         serializableCheck: false,
-        immutableCheck: { warnAfter: 200 },
+        immutableCheck: false,
+        //immutableCheck: { warnAfter: 200 },
     }),
 });
 

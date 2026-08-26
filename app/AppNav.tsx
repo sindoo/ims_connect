@@ -1,5 +1,5 @@
 import React, {useEffect} from 'react';
-import {Stack} from "expo-router";
+import {Stack, useRouter} from "expo-router";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
@@ -9,6 +9,7 @@ import CustomHeaderWithOutBackButton from "../components/ui/header/CustomHeaderW
 import {checkTokenExpired} from "../services/GeneralService";
 import {getAuthToken, setAuthToken} from "../api/ApiManager";
 import {setUserSliceToken} from "../redux/features/user/userSlice";
+import CustomHeaderWithButton from "../components/ui/header/CustomHeaderWithButton";
 
 const AppNav = () => {
     const {i18n} = useTranslation();
@@ -16,6 +17,11 @@ const AppNav = () => {
     const {userToken} = useSelector((state: any) => state.user);
     const {t} = useTranslation();
     const dispatch = useDispatch();
+    const router = useRouter();
+
+    const handleBackRoute = (routeName: string) => {
+        router.push(routeName);
+    }
 
     useEffect(() => {
         //i18n.changeLanguage(languageSelected).catch((error) => console.log(error));
@@ -60,6 +66,78 @@ const AppNav = () => {
                                 }}
                             />
                             <Stack.Screen name="(drawer)" options={{headerShown: false}} />
+                            <Stack.Screen
+                                name="pages/appointment/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('appointment.details_title')}
+                                                backRouteName="appointment/all-appointment"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+                            <Stack.Screen
+                                name="pages/appointment/preset-appointment-details"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('appointment.details_title')}
+                                                backRouteName="appointment/preset-appointment"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+                            <Stack.Screen
+                                name="pages/more/tuitiom/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('appointment.details_title')}
+                                                backRouteName="more/tuition/all-payment"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+                            <Stack.Screen
+                                name="pages/more/club/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('more.mini_club_details')}
+                                                backRouteName="more/club"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+                            {/*<Stack.Screen
+                                name="pages/more/exchangelibrary"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('more.mini_club_details')}
+                                                backRouteName="more/club"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />*/}
+
+
                         </Stack.Protected>
                     </Stack>
                 </GestureHandlerRootView>

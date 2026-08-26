@@ -25,6 +25,7 @@ import {Card} from "react-native-paper";
 import {BASEURL_IMG} from "../../../api/appUrl";
 import WeekCalendar from "../../../components/ui/WeekCalendar";
 import HomeAppointment from "../../../components/tabs/home/HomeAppointment";
+import {useRouter} from "expo-router";
 
 const home = () => {
     const {selectedChild, children} = useSelector((state: any) => state.child);
@@ -34,6 +35,7 @@ const home = () => {
     const {openAlert, dataNotification} = useSelector((state: any) => state.alertMessage);
     const {user, userToken} = useSelector((state:any) => state.user);
     const dispatch = useDispatch();
+    const router = useRouter();
 
     const [date, setDate] = useState(new Date());
     const {t, i18n} = useTranslation();
@@ -361,7 +363,7 @@ const home = () => {
                                         backgroundColor={COLORS.secondary}
                                         paddingVertical={12}
                                         borderRadius={20}
-                                        onPress={() => navigation.navigate('MyImsDay')}
+                                        onPress={() => router.push('imsday/index')}
                                         disabled={false}
                                     />
                                 </View>
@@ -507,7 +509,6 @@ const home = () => {
                                                 <HomeAppointment
                                                     key={appointment.id}
                                                     appointment={appointment}
-                                                    navigation={navigation}
                                                     employeesFind={employeesFind}
                                                     dayDate={dayDate}
                                                     startTime={startTime}

@@ -2,7 +2,7 @@ import React, {useEffect} from 'react';
 import {StyleSheet, Text, Pressable, View, Image} from 'react-native';
 import {useTranslation} from "react-i18next";
 import {useNavigation} from "expo-router/react-navigation";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import {format, getHours, getMinutes, toDate} from "date-fns";
 import {toZonedTime} from "date-fns-tz";
 import {COLORS, IMAGES, TIME_ZONE_ABIDJAN} from "../../../constants";
@@ -11,15 +11,22 @@ import {globalStyles} from "../../../style/Global";
 import {enUS, fr} from "date-fns/locale";
 import {MaterialIcons} from "@expo/vector-icons";
 import Card from "../../ui/Card";
+import {useRouter} from "expo-router";
+import {changeAppLanguage} from "../../../redux/features/language/languageSlice";
+import {
+  setAppointmentDetailsInRedux
+} from "../../../redux/features/appointment/appointmentSlice";
 
 function AppointmentItem(props: any) {
   const {data} = props;
   const {t, i18n} = useTranslation();
-  const navigation: any = useNavigation();
+  //const navigation: any = useNavigation();
   const {teacherList, employeesClassList} = useSelector((state: any) => state.employee);
   const {selectedChild} = useSelector((state: any) => state.child);
   const selectedChildClass = selectedChild?.eleves.length >0 ? selectedChild?.eleves[0]?.classe : null;
   let indexCrenauChoice = -1;
+  const router = useRouter();
+  const dispatch = useDispatch();
 
   let dayDate: any = toDate(data?.dateDebut);
   let datefin: any = toDate(data?.dateFin);
@@ -47,18 +54,23 @@ function AppointmentItem(props: any) {
     //employeesFind = teacherList[0];
   }
 
-  useEffect(() => {}, [data]);
+  useEffect(() => {
+    //console.log(JSON.stringify(data));
+  }, [data]);
 
   return (
     <Card borderRaduis={8} marginBottom={20}>
       <Pressable
-          onPress={() => {}}
-        /*onPress={() =>
-          navigation.navigate(ROUTES.APPOINTMENT_DETAILS, {
-            data: data,
-            location: 'appointment',
-          })
-        }*/
+        onPress={() => {
+            //router.push('/pages/appointment');
+            dispatch(setAppointmentDetailsInRedux(data));
+            router.push({
+              pathname: '/pages/appointment',
+              params: {
+                data: JSON.stringify(data?.id),
+              }
+            });
+        }}
       >
         <View style={styles.appointmentItem}>
           <View style={styles.appointmentImage}>

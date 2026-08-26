@@ -1,18 +1,20 @@
 import React from 'react';
 import {useTranslation} from "react-i18next";
 import {COLORS, IMAGES, ROUTES} from "../../../constants";
-import {Card} from "react-native-paper";
-import {Pressable, View, StyleSheet} from "react-native";
+import {Pressable, View, StyleSheet, Text} from "react-native";
 import {BASEURL_IMG} from "../../../api/appUrl";
 import { Image } from "expo-image";
 import {globalStyles} from "../../../style/Global";
 import {format} from "date-fns";
 import {enUS, fr} from "date-fns/locale";
 import {MaterialIcons} from "@expo/vector-icons";
+import Card from "../../ui/Card";
+import {useRouter} from "expo-router";
+import {setAppointmentDetailsInRedux} from "../../../redux/features/appointment/appointmentSlice";
+import {useDispatch} from "react-redux";
 
 function HomeAppointment({
   appointment,
-  navigation,
   employeesFind,
   dayDate,
   startTime,
@@ -20,7 +22,6 @@ function HomeAppointment({
   selectedChildClass,
 }: {
   appointment: any;
-  navigation: any;
   employeesFind: any;
   dayDate: any;
   startTime: any;
@@ -28,19 +29,28 @@ function HomeAppointment({
   selectedChildClass: any;
 }) {
   const {t, i18n} = useTranslation();
-
+  const router = useRouter();
+  const dispatch = useDispatch();
   const handleAppointmentDetails = (data: any) => {
     if(data?.meetingType === 'PRESET') {
-      navigation.navigate(ROUTES.APPOINTMENT_TAB, {
+      /*navigation.navigate(ROUTES.APPOINTMENT_TAB, {
         screen: ROUTES.APPOINTMENT,
         initial: false,
         params: {
           screen: ROUTES.PRESET_APPOINTMENT
         }
-      });
+      });*/
     }
     else {
-      navigation.navigate(ROUTES.APPOINTMENT_HOME_DETAILS, { data: data, location: 'home' });
+      //navigation.navigate(ROUTES.APPOINTMENT_HOME_DETAILS, { data: data, location: 'home' });
+      dispatch(setAppointmentDetailsInRedux(data));
+      router.push({
+        pathname: '/pages/appointment',
+        params: {
+          data: JSON.stringify(data?.id),
+          location: 'home'
+        }
+      });
     }
   };
 

@@ -118,7 +118,7 @@ export default function TabLayout() {
             />
 
             <Tabs.Screen
-                name="more/index"
+                name="more"
                 options={{
                     title: t('systemTranslation.tab_nav_more'),
                     headerTintColor: theme.tabIconColorFocused,
@@ -129,11 +129,7 @@ export default function TabLayout() {
                             color={focused ? theme.tabIconColorFocused : theme.tabIconColor }
                         /> as any
                     ),
-                    header: () => {
-                        return (
-                            <CustomHeader title={t('systemTranslation.tab_nav_more')} />
-                        ) as any;
-                    },
+                    headerShown: false,
                 }}
             />
         </Tabs>

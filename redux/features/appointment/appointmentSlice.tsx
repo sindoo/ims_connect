@@ -6,6 +6,7 @@ const initialState: any = {
   activeAppointmentList: [],
   todayListAppointments: [],
   upcomingListAppointments: [],
+  appointmentDetailsInRedux: null,
 };
 
 const getActiveAppointmentList = (state: any) => {
@@ -140,6 +141,9 @@ const appointmentSlice = createSlice({
       );
       getActiveAppointmentList(state);
     },
+    setAppointmentDetailsInRedux: (state, action) => {
+        state.appointmentDetailsInRedux = action.payload;
+    },
     initializeAllAppointment: () => {
       return initialState;
     },
@@ -154,6 +158,7 @@ export const {
   addNewAppointment,
   updateAppointment,
   removeAppointment,
+  setAppointmentDetailsInRedux,
 } = appointmentSlice.actions;
 
 export default appointmentSlice.reducer;
