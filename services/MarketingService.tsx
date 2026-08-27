@@ -9,6 +9,9 @@ class MarketingService {
         ? productReq._embedded.produitDTOModelList
         : [];
   };
+  static getProductById = async (productId: string) => {
+    return await getRequest('', `/extra/commerceproduit/${productId}`);
+  }
   static getUserProduct = async (selectedChildId: number) => {
     const productReq = await getRequest('', '/extra/commercevente');
     const productList =

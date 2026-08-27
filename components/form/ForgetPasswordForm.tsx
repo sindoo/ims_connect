@@ -18,6 +18,7 @@ import FlatButton from "../ui/FlatButton";
 import {useTranslation} from "react-i18next";
 import {Formik} from "formik";
 import {useRouter} from "expo-router";
+import AuthenticationService from "../../services/AuthenticationService";
 //import ScrollView = Animated.ScrollView;
 
 const passwordFormSchema = yup.object({
@@ -57,14 +58,13 @@ const ForgetPasswordForm = ({
                             {errorMessage}
                         </Text>
 
-
                         <Formik
                             initialValues={{
                                 username: '',
                             }}
                             validationSchema={passwordFormSchema}
                             onSubmit={async (data) => {
-                               // await handleRequestPassword(data);
+                                await onSubmit(data);
                             }}>
                             {formikProps => (
                                 <>

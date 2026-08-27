@@ -74,9 +74,9 @@ export default function More({navigation}: {navigation: any}) {
                         </View>
                     </TouchableOpacity>
 
-                    {/*<TouchableOpacity
+                    <TouchableOpacity
                         activeOpacity={0.6}
-                        onPress={() => navigation.navigate(ROUTES.CHILD_PICTURE)}>
+                        onPress={() => router.push('more/picture')}>
                         <View style={styles.menuItem}>
                             <MaterialIcons
                                 name="photo-library"
@@ -89,7 +89,7 @@ export default function More({navigation}: {navigation: any}) {
 
                     <TouchableOpacity
                         activeOpacity={0.6}
-                        onPress={() => navigation.navigate(ROUTES.SCHOOL_DOCUMENT)}>
+                        onPress={() => router.push('more/document')}>
                         <View style={styles.menuItem}>
                             <MaterialIcons
                                 name="description"
@@ -102,7 +102,7 @@ export default function More({navigation}: {navigation: any}) {
 
                     <TouchableOpacity
                         activeOpacity={0.6}
-                        onPress={() => navigation.navigate(ROUTES.MARKETING)}>
+                        onPress={() => router.push('more/marketing')}>
                         <View style={styles.menuItem}>
                             <MaterialIcons
                                 name="sell"
@@ -115,7 +115,7 @@ export default function More({navigation}: {navigation: any}) {
 
                     <TouchableOpacity
                         activeOpacity={0.6}
-                        onPress={() => navigation.navigate(ROUTES.SURVEY)}>
+                        onPress={() => router.push('more/survey')}>
                         <View style={styles.menuItem}>
                             <MaterialCommunityIcons
                                 name="message-question"
@@ -124,7 +124,7 @@ export default function More({navigation}: {navigation: any}) {
                             />
                             <Text style={styles.itemColor}>{t('more.survey')}</Text>
                         </View>
-                    </TouchableOpacity>*/}
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </View>

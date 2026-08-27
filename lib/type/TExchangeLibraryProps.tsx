@@ -1,13 +1,13 @@
-import {NavigationProp} from '@react-navigation/native';
+import {NavigationProp} from 'expo-router/react-navigation';
 import {Dispatch, SetStateAction} from 'react';
 
 export type TExchangeLibraryProps = {
-  navigation: NavigationProp<any>;
+  navigation?: NavigationProp<any>;
   snackbarShowMessage?: any;
 };
 
 export type TBorrowingProps = {
-  navigation: NavigationProp<any>;
+  navigation?: NavigationProp<any>;
   data?: TBook;
 };
 
@@ -24,7 +24,7 @@ export type TBook = {
 };
 
 export type TBookItemProps = {
-  navigation: NavigationProp<any>;
+  navigation?: NavigationProp<any>;
   data?: TBook;
   bookStatus?: boolean;
   borrowChildStatus?: boolean;

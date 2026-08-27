@@ -62,15 +62,16 @@ const MoreLayout = () => {
                 }}
             />
 
-            {/*<Stack.Screen
-                name="average/index"
+            <Stack.Screen
+                name="exchangelibrary"
                 options={{
+                    animate: false,
                     header: () => {
                         return (
                             <CustomHeaderWithButton
                                 handleBackRoute={handleBackRoute}
-                                title={t('more.average')}
-                                backRouteName="/more"
+                                title={t('more.exchange_library')}
+                                backRouteName="more"
                             />
                         ) as any;
                     },
@@ -78,34 +79,65 @@ const MoreLayout = () => {
             />
 
             <Stack.Screen
-                name="bulletin/index"
+                name="picture/index"
                 options={{
+                    animate: false,
                     header: () => {
                         return (
                             <CustomHeaderWithButton
                                 handleBackRoute={handleBackRoute}
-                                title={t('more.bulletin')}
-                                backRouteName="/more"
+                                title={t('more.pictures')}
+                                backRouteName="more"
                             />
                         ) as any;
                     },
                 }}
             />
-
             <Stack.Screen
-                name="teacher/index"
+                name="document/index"
                 options={{
+                    animate: false,
                     header: () => {
                         return (
                             <CustomHeaderWithButton
                                 handleBackRoute={handleBackRoute}
-                                title={t('more.teachers')}
-                                backRouteName="/more"
+                                title={t('more.school_document')}
+                                backRouteName="more"
                             />
                         ) as any;
                     },
                 }}
-            />*/}
+            />
+            <Stack.Screen
+                name="marketing"
+                options={{
+                    animate: false,
+                    header: () => {
+                        return (
+                            <CustomHeaderWithButton
+                                handleBackRoute={handleBackRoute}
+                                title={t('more.marketing')}
+                                backRouteName="more"
+                            />
+                        ) as any;
+                    },
+                }}
+            />
+            <Stack.Screen
+                name="survey"
+                options={{
+                    animate: false,
+                    header: () => {
+                        return (
+                            <CustomHeaderWithButton
+                                handleBackRoute={handleBackRoute}
+                                title={t('more.survey')}
+                                backRouteName="more"
+                            />
+                        ) as any;
+                    },
+                }}
+            />
 
         </Stack>
     );

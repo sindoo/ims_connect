@@ -122,6 +122,20 @@ const AppNav = () => {
                                     },
                                 }}
                             />
+                            <Stack.Screen
+                                name="pages/more/marketing/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('more.product_details')}
+                                                backRouteName="more/marketing"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
                             {/*<Stack.Screen
                                 name="pages/more/exchangelibrary"
                                 options={{

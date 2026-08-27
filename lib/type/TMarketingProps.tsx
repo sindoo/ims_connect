@@ -1,7 +1,7 @@
-import {NavigationProp, RouteProp} from '@react-navigation/native';
+import {NavigationProp, RouteProp} from 'expo-router/react-navigation';
 
 export type TMarketingProps = {
-  navigation: NavigationProp<any>;
+  navigation?: NavigationProp<any>;
 };
 
 export type TMarketing = {
@@ -15,7 +15,7 @@ export type TMarketing = {
 };
 
 export type TMarketingItemProps = {
-  navigation: NavigationProp<any>;
+  navigation?: NavigationProp<any>;
   data: TMarketing;
 };
 

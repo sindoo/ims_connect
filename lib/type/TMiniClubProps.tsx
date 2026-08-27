@@ -1,4 +1,4 @@
-import {NavigationProp, RouteProp} from '@react-navigation/native';
+import {NavigationProp, RouteProp} from 'expo-router/react-navigation';
 
 export type TMiniClubProps = {
   navigation: NavigationProp<any>;
