@@ -2,7 +2,7 @@ import {deleteRequest, getRequest, putRequest} from "../api/ApiManager";
 import {BASEURL_MSG_NOTIF} from "../api/appUrl";
 class WsNotificationService {
     static getAllNotification = async (userUuid: any) => {
-        const allNotificationRequest:any = await getRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
+        const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
         if(Array.isArray(allNotificationRequest) && allNotificationRequest.length > 0) {
             let allNotificationList =  allNotificationRequest.sort(function (a: any, b: any) {
                 return a.dateSent - b.dateSent;
@@ -13,14 +13,14 @@ class WsNotificationService {
             return [];
         }
     };
-    static getUserNotificationById = async (notificationId: number) => {
-        return await getRequest(BASEURL_MSG_NOTIF, `/ws/notifications/${notificationId}`);
+    static getUserNotificationById = async (notificationId: string) => {
+        return await getRequest('', `/ws/notifications/${notificationId}`);
     };
     static updateNotification = async (user:any, notificationId: number) => {
-        const notificationReq:any = await putRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${user.uuid}/read/${notificationId}`, {});
+        const notificationReq:any = await putRequest('', `/ws/notifications/utilisateur/${user.uuid}/read/${notificationId}`, {});
     };
     static deleteOldNotification = async (userUuid: any) => {
-        const allNotificationRequest:any = await getRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
+        const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
         let allNotificationList =  allNotificationRequest.sort(function (a: any, b: any) {
             return a.dateSent - b.dateSent;
         });
@@ -40,7 +40,7 @@ class WsNotificationService {
                 for(let i=0; i<filteredList.length; i++){
                     notificationTabId.push(filteredList[i]?.id);
                 }
-                await deleteRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${userUuid}/bouquet`, notificationTabId);
+                await deleteRequest('', `/ws/notifications/utilisateur/${userUuid}/bouquet`, notificationTabId);
             }
         }
     };
@@ -70,7 +70,7 @@ class WsNotificationService {
         return notificationList;
     };
     static deleteAllNotification = async (userUuid: any) => {
-        const allNotificationRequest:any = await getRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${userUuid}`);
+        const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}`);
         let allNotificationList =  allNotificationRequest.sort(function (a: any, b: any) {
             return a.dateSent - b.dateSent;
         });
@@ -81,7 +81,7 @@ class WsNotificationService {
             for(let i=0; i<dataList.length; i++){
                 notificationTabId.push(dataList[i]?.id);
             }
-            await deleteRequest(BASEURL_MSG_NOTIF, `/ws/notifications/utilisateur/${userUuid}/bouquet`, notificationTabId);
+            await deleteRequest('', `/ws/notifications/utilisateur/${userUuid}/bouquet`, notificationTabId);
         }
     };
     static getAllHeaderNotification = async (userUuid: any) => {

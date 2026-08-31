@@ -266,35 +266,34 @@ export const NOTIFICATION_MESSAGE_FR: any = [
 export const NOTIFICATION_NAGIVATION: any = [
   {
     tag: 'rdv',
-    value: ROUTES.APPOINTMENT_TAB,
+    value: '/(drawer)/(tabs)/appointment',
   },
   {
     tag: 'message_center',
-    value: ROUTES.MESSAGE_TAB,
+    value: '/(drawer)/(tabs)/message',
   },
   {
     tag: 'miniclubs',
-    value: ROUTES.MORE_TAB,
-    //value: ROUTES.MINI_CLUB,
+    value:'/(drawer)/(tabs)/more/club',
   },
   {
     tag: 'imsday',
-    value: ROUTES.IMS_DAY_TAB,
+    value: '/(drawer)/(tabs)/imsday',
   },
   {
     tag: 'livremprunt',
-    value: ROUTES.EXCHANGE_LIBRARY,
+    value: '/(drawer)/(tabs)/more/exchangelibrary',
   },
   {
     tag: 'alertmessage',
-    value: ROUTES.HOME_TAB,
+    value: '/(drawer)/(tabs)/more',
   },
   {
     tag: 'sondage',
-    value: ROUTES.MORE_TAB,
+    value: '/(drawer)/(tabs)/more/survey',
   },
   {
     tag: 'documents',
-    value: ROUTES.MORE_TAB,
+    value: '/(drawer)/(tabs)/more/document',
   },
 ];

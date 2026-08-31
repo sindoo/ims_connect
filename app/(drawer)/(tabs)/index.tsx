@@ -21,7 +21,7 @@ import {setAllAppointmentList} from "../../../redux/features/appointment/appoint
 import {changeChild} from "../../../redux/features/child/childSlice";
 import MenuYearService from "../../../services/MenuYearService";
 import WeekService from "../../../services/WeekService";
-import {Card} from "react-native-paper";
+import Card from "../../../components/ui/Card";
 import {BASEURL_IMG} from "../../../api/appUrl";
 import WeekCalendar from "../../../components/ui/WeekCalendar";
 import HomeAppointment from "../../../components/tabs/home/HomeAppointment";
@@ -363,7 +363,7 @@ const home = () => {
                                         backgroundColor={COLORS.secondary}
                                         paddingVertical={12}
                                         borderRadius={20}
-                                        onPress={() => router.push('imsday/index')}
+                                        onPress={() => router.push('imsday')}
                                         disabled={false}
                                     />
                                 </View>

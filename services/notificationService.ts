@@ -7,16 +7,18 @@ import {
     onMessage,
     onNotificationOpenedApp,
     getInitialNotification,
+    RemoteMessage,
 } from '@react-native-firebase/messaging';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
+import WsNotificationService from "./WSNotificationService";
+import { NOTIFICATION_NAGIVATION } from "../constants/notification";
 
 const messagingInstance = getMessaging(getApp());
 
-// Comment la notif doit se comporter si elle arrive pendant que l'app est ouverte
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
         shouldShowBanner: true,
@@ -24,7 +26,6 @@ Notifications.setNotificationHandler({
     }),
 });
 
-// Canal obligatoire sur Android 8+ pour que la notif s'affiche correctement
 export async function setupNotificationChannel() {
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
@@ -35,7 +36,6 @@ export async function setupNotificationChannel() {
     }
 }
 
-// 1. Demander les permissions
 export async function requestUserPermission() {
     if (Platform.OS === 'web') return false;
 
@@ -57,13 +57,13 @@ export async function requestUserPermission() {
 
         console.log('Statut d\'autorisation:', authStatus);
         return enabled;
-    } catch (e) {
+    }
+    catch (e) {
         console.warn('Firebase Messaging non disponible sur cet environnement :', e);
         return false;
     }
 }
 
-// 2. Obtenir le token FCM
 export async function getFcmToken() {
     try {
         const fcmToken = await getToken(messagingInstance);
@@ -79,38 +79,97 @@ export async function getFcmToken() {
     }
 }
 
-// 3. Écouter les notifications
+// --- Navigation depuis une notification ---
+
+let pendingNotificationData: Record<string, any> | null = null;
+
+async function navigateFromNotificationData(data: Record<string, any> | undefined) {
+    try {
+        const rawJsonData = data?.json;
+        if (!rawJsonData) return;
+
+        const notificationId: string = typeof rawJsonData === 'object'
+            ? JSON.stringify(rawJsonData)
+            : String(rawJsonData);
+
+        const notificationData = await WsNotificationService.getUserNotificationById(notificationId);
+
+        const notificationNav: any = NOTIFICATION_NAGIVATION.find(
+            (notification: any) => notification.tag === notificationData?.common?.tag,
+        );
+
+        if (notificationNav?.value) {
+            router.push({
+                pathname: notificationNav.value,
+                params: { data: JSON.stringify(notificationData) },
+            });
+        }
+        else {
+            console.log('Aucune route trouvée pour ce tag :', notificationData?.common?.tag);
+        }
+    }
+    catch (error) {
+        console.log(error);
+    }
+}
+
+// Appelée depuis AppNav une fois l'utilisateur authentifié et le Stack protégé monté
+export async function handlePendingNotificationIfAny() {
+    const pending = pendingNotificationData;
+    pendingNotificationData = null; // consommée une seule fois
+    if (pending) {
+        await navigateFromNotificationData(pending);
+    }
+}
+
+export async function handleNotificationRemote(remoteMessage: RemoteMessage | null) {
+    await navigateFromNotificationData(remoteMessage?.data);
+}
+
+// --- Listeners ---
+
 export function notificationListener() {
     const unsubscribe = onMessage(messagingInstance, async (remoteMessage) => {
         console.log('Notification reçue en premier plan :', remoteMessage);
+
         await Notifications.scheduleNotificationAsync({
             content: {
                 title: remoteMessage.notification?.title ?? 'Nouvelle notification',
                 body: remoteMessage.notification?.body ?? '',
-                data: remoteMessage.data, // pour retrouver le payload au clic
+                data: remoteMessage.data,
                 sound: true,
+                ...(Platform.OS === 'android' && { channelId: 'default' }),
             },
-            trigger: null, // null = affichage immédiat
+            trigger: null,
         });
     });
 
-    onNotificationOpenedApp(messagingInstance, (remoteMessage) => {
-        console.log('App ouverte depuis l\'arrière-plan via notification :', remoteMessage);
+    // App tap depuis l'arrière-plan
+    onNotificationOpenedApp(messagingInstance, async (remoteMessage) => {
+        try {
+            console.log('App ouverte depuis l\'arrière-plan via notification :');
+            await handleNotificationRemote(remoteMessage);
+        } catch (error) {
+            console.log(error);
+        }
     });
 
+    // App relancée depuis l'état fermé (killed) — on met en attente, AppNav consommera
     getInitialNotification(messagingInstance).then((remoteMessage) => {
         if (remoteMessage) {
-            console.log('App ouverte depuis l\'état fermé via notification :', remoteMessage);
+            console.log('App ouverte depuis l\'état fermé via notification :');
+            pendingNotificationData = remoteMessage.data ?? null;
         }
     });
 
     return unsubscribe;
 }
 
+// Clic sur une notif locale affichée pendant que l'app est au premier plan
 export function notificationResponseListener() {
-    return Notifications.addNotificationResponseReceivedListener((response) => {
+    return Notifications.addNotificationResponseReceivedListener(async (response) => {
         const data = response.notification.request.content.data;
         console.log('Notification locale tapée en foreground :', data);
-        // ex: router.push(`/enfant/${data.childId}`)
+        await navigateFromNotificationData(data as Record<string, any>);
     });
 }

@@ -20,7 +20,6 @@ import TuitionYearForm from "../../../../../components/tabs/more/tuition/Tuition
 import PaymentTypeForm from "../../../../../components/tabs/more/tuition/PaymentTypeForm";
 import PaymentItem from "../../../../../components/tabs/more/tuition/PaymentItem";
 
-
 function PaymentList(props) {
     const [openTypeForm, setOpenTypeForm] = useState(false);
     const [paymentTypeValue, setPaymentTypeValue] = useState<any>(null);

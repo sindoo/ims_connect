@@ -6,16 +6,18 @@ import {useDispatch, useSelector} from "react-redux";
 import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
 import {StyleSheet} from 'react-native';
 import CustomHeaderWithOutBackButton from "../components/ui/header/CustomHeaderWithOutBackButton";
-import {checkTokenExpired} from "../services/GeneralService";
+import {checkTokenExpired, updateHeaderNotificationEveryWhere} from "../services/GeneralService";
 import {getAuthToken, setAuthToken} from "../api/ApiManager";
 import {setUserSliceToken} from "../redux/features/user/userSlice";
 import CustomHeaderWithButton from "../components/ui/header/CustomHeaderWithButton";
+import { handlePendingNotificationIfAny } from "../services/notificationService";
 
 const AppNav = () => {
     const {i18n} = useTranslation();
     const {languageSelected} = useSelector((state: any) => state.language);
-    const {userToken} = useSelector((state: any) => state.user);
+    const {userToken, user} = useSelector((state: any) => state.user);
     const {t} = useTranslation();
+    const {selectedChild} = useSelector((state: any) => state.child);
     const dispatch = useDispatch();
     const router = useRouter();
 
@@ -38,6 +40,30 @@ const AppNav = () => {
             console.log(error);
         });
     }, [i18n, languageSelected]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if(user !== null) {
+                // GET ALL NOTIFICATIONS AND DELETE OLD ONE
+                await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
+            }
+            checkTokenExpired(userToken, dispatch);
+        };
+        fetchData().catch(error => {
+            console.log(error);
+        })
+    }, [selectedChild]);
+
+    useEffect(() => {
+        const pendingNotification = async () => {
+            if (userToken !== null) {
+                await handlePendingNotificationIfAny();
+            }
+        }
+        pendingNotification().catch(error  => {
+            console.log(error);
+        });
+    }, [userToken]);
 
     return (
         <SafeAreaProvider>
@@ -95,7 +121,7 @@ const AppNav = () => {
                                 }}
                             />
                             <Stack.Screen
-                                name="pages/more/tuitiom/index"
+                                name="pages/more/tuition/index"
                                 options={{
                                     header: () => {
                                         return (

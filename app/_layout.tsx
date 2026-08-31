@@ -11,11 +11,24 @@ import {
     requestUserPermission,
     setupNotificationChannel
 } from "../services/notificationService";
+import * as Notifications from 'expo-notifications';
 
 try {
     const messagingInstance = getMessaging(getApp());
     setBackgroundMessageHandler(messagingInstance, async remoteMessage => {
         console.log('Message reçu en background:', remoteMessage);
+        // Si le payload est data-only (pas de bloc "notification"),
+        // Android ne l'affiche jamais tout seul — il faut le faire nous-mêmes.
+        if (!remoteMessage.notification) {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: remoteMessage.data?.title as string ?? 'Nouvelle notification',
+                    body: remoteMessage.data?.body as string ?? '',
+                    data: remoteMessage.data,
+                },
+                trigger: null,
+            });
+        }
     });
 }
 catch (e) {
@@ -45,7 +58,6 @@ const RootLayout = () => {
             cleanupPromise.then((cleanup) => cleanup && cleanup());
         };
     }, []);
-
 
     return (
         <ReduxProvider>

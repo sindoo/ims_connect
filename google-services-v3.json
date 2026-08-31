@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002722844059",
+    "project_id": "ims-v3-messaging",
+    "storage_bucket": "ims-v3-messaging.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002722844059:android:95dcfadc8c65994b41553e",
+        "android_client_info": {
+          "package_name": "ims.connect.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTxgE89qrBvdHogkEfPMAr78cG3bb51t8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,7 +7,6 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import {TExchangeLibraryProps} from "../../../../../lib/type/TExchangeLibraryProps";
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import ExchangeLibraryService from "../../../../../services/ExchangeLibraryService";
