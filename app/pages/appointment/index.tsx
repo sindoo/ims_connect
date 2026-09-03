@@ -14,7 +14,7 @@ import {MaterialIcons} from "@expo/vector-icons";
 import FlatButton from "../../../components/ui/FlatButton";
 import {useLocalSearchParams, useRouter} from "expo-router";
 import {withSnackbar} from "../../../components/ui/SnackbarHOC";
-import {removeAppointment} from "../../../redux/features/appointment/appointmentSlice";
+import {removeAppointment, setAppointmentDetailsInRedux} from "../../../redux/features/appointment/appointmentSlice";
 import {request} from "../../../api/ApiManager";
 import Loading from "../../../components/ui/Loading";
 import ButtonActionStatus from "../../../components/tabs/appointment/ButtonActionStatus";
@@ -29,8 +29,8 @@ const AppointmentDetails = (props) => {
     const {user} = useSelector((state: any) => state.user);
     const [teacherData, setTeacherData] = useState<any>(null);
     const [appointmentDetails, setAppointmentDetails] = useState<any>(null);
-    let dayDate: any = appointmentDetails !== null ? toDate(appointmentDetails.dateDebut) : toDate(appointmentDetailsInRedux?.dateDebut);
-    let datefin: any = appointmentDetails !== null ? toDate(appointmentDetails.dateFin) : toDate(appointmentDetailsInRedux?.dateFin);
+    let dayDate: any = appointmentDetails !== null ? toDate(appointmentDetailsInRedux.dateDebut) : toDate(appointmentDetailsInRedux?.dateDebut);
+    let datefin: any = appointmentDetails !== null ? toDate(appointmentDetailsInRedux.dateFin) : toDate(appointmentDetailsInRedux?.dateFin);
     dayDate = toZonedTime(dayDate, TIME_ZONE_ABIDJAN);
     datefin = toZonedTime(datefin, TIME_ZONE_ABIDJAN);
 
@@ -82,15 +82,7 @@ const AppointmentDetails = (props) => {
         request('DELETE', '', `/extra/rdv/${data.id}`, {})
             .then(response => {
                 dispatch(removeAppointment(data));
-                //navigation.navigate('Appointment');
-                if(location === 'home') {
-                    //navigation.navigate(ROUTES.HOME_TAB);
-                    router.push('/(drawer)/(tabs)');
-                }
-                else {
-                    //navigation.navigate(ROUTES.ALL_APPOINTMENT);
-                    router.push('/(drawer)/(tabs)/all-appointment');
-                }
+                router.push('/(drawer)/(tabs)/appointment/all-appointment');
             })
             .catch(error => {
                 console.log(JSON.stringify(error));
@@ -100,6 +92,7 @@ const AppointmentDetails = (props) => {
 
     useEffect(() => {
         const fetchData = async () => {
+            //console.log("appointmentDetailsInRedux:", JSON.stringify(appointmentDetailsInRedux));
             try {
                 setLoading(true);
                 setAppointmentDetails(appointmentDetailsInRedux);
@@ -196,10 +189,10 @@ const AppointmentDetails = (props) => {
                                     contentFit="cover"
                                     style={styles.appointImageCover}
                                 />
-                                {appointmentDetails !== null && (
+                                {/*{(
                                     <View
                                         style={{
-                                            ...((appointmentDetails.meetingStatus === 'CONFIRM' &&
+                                            ...((appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
                                                     styles.validateStatus) ||
                                                 (indexCrenauChoice !== -1 &&
                                                     appointmentDetailsInRedux.meetingType === 'PRESET' &&
@@ -207,53 +200,82 @@ const AppointmentDetails = (props) => {
                                                         ?.creneauRdvEnfantParents[0]?.meetingStatus ===
                                                     'CONFIRM' &&
                                                     styles.validateStatus) ||
-                                                (appointmentDetails.meetingStatus === 'NOT_RESPECTED' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'NOT_RESPECTED' &&
                                                     styles.validateStatus) ||
-                                                (appointmentDetails.meetingStatus === 'WAIT' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'WAIT' &&
                                                     styles.pendingStatus) ||
-                                                (appointmentDetails.meetingStatus === 'REPORT' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'REPORT' &&
                                                     styles.pendingStatus) ||
-                                                (appointmentDetails.meetingStatus === 'NOT_HELD' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' &&
                                                     styles.pendingStatus) ||
-                                                (appointmentDetails.meetingStatus === 'PARTIAL_CONFIRM' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' &&
                                                     styles.pendingStatus) ||
-                                                (appointmentDetails.meetingStatus === 'CANCEL' &&
+                                                (appointmentDetailsInRedux.meetingStatus === 'CANCEL' &&
                                                     styles.cancelStatus)),
                                         } as StyleSheet}
                                     />
-                                )}
+                                )}*/}
 
-                                {appointmentDetails !== null &&
-                                    (appointmentDetails.meetingStatus === 'WAIT' ||
-                                        //appointmentDetails.meetingStatus === 'REPORT' ||
-                                        appointmentDetails.meetingStatus === 'NOT_HELD' ||
-                                        appointmentDetails.meetingStatus === 'PARTIAL_CONFIRM' ||
-                                        appointmentDetails.meetingStatus === 'CANCEL') &&
-                                    appointmentDetails.creneauRdvs[0].employeeNbrAction === 0 &&
-                                    parentId === appointmentDetailsInRedux.userInitor && (
+                                {(appointmentDetailsInRedux.meetingStatus === 'WAIT' ||
+                                    //appointmentDetails.meetingStatus === 'REPORT' ||
+                                    appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' ||
+                                    appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' ||
+                                    appointmentDetailsInRedux.meetingStatus === 'CANCEL') && appointmentDetailsInRedux.creneauRdvs[0].employeeNbrAction === 0 && userId === appointmentDetailsInRedux.userInitor && (
                                         <TouchableOpacity
-                                            onPress={() => handleDeleteRdv(appointmentDetails)}
-                                            style={{marginTop: 20}}>
-                                            <MaterialIcons size={22} color={COLORS.red} name="delete" />
+                                            onPress={() => handleDeleteRdv(appointmentDetailsInRedux)}
+                                            style={{marginTop: 10}}>
+                                            <Text style={styles.deleteAppointment}>{t('appointment.delete')}</Text>
                                         </TouchableOpacity>
                                     )}
                             </View>
 
                             <View style={styles.appointmentInfoContainer}>
-                                <Text style={globalStyles.titleH2}>
-                                    {appointmentDetails !== null && appointmentDetails.objet}
+                                <Text style={{...globalStyles.titleH2}}>
+                                    {appointmentDetailsInRedux.objet}
                                 </Text>
-                                {appointmentDetails !== null &&
-                                    appointmentDetails.details !== '' && (
+                                <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start',  marginBottom: 7, } as StyleSheet}>
+                                    <Text style={{marginBottom: 5,padding:3, paddingHorizontal:7, fontSize: 11, fontWeight: 400, borderRadius: 5, ...((appointmentDetailsInRedux.meetingType === 'NORMAL' &&
+                                                appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
+                                                styles.validateStatus) ||
+                                            (indexCrenauChoice !== -1 &&
+                                                appointmentDetailsInRedux.meetingType === 'PRESET' &&
+                                                appointmentDetailsInRedux?.creneauRdvs[indexCrenauChoice]
+                                                    ?.creneauRdvEnfantParents[0]?.meetingStatus === 'CONFIRM' &&
+                                                styles.validateStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'NOT_RESPECTED' &&
+                                                styles.validateStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'WAIT' && styles.pendingStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'REPORT' && styles.pendingStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' && styles.pendingStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' &&
+                                                styles.pendingStatus) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'CANCEL' && styles.cancelStatus))} as StyleSheet }>
+                                        {
+                                            appointmentDetailsInRedux.meetingType === 'NORMAL' &&
+                                            appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
+                                            t('appointment.confirmed') ||
+                                            (indexCrenauChoice !== -1 && appointmentDetailsInRedux.meetingType === 'PRESET' && appointmentDetailsInRedux?.creneauRdvs[indexCrenauChoice]?.creneauRdvEnfantParents[0]?.meetingStatus === 'CONFIRM' && t('appointment.confirmed')) ||
+                                            appointmentDetailsInRedux.meetingStatus === 'NOT_RESPECTED' &&
+                                            t('appointment.confirmed') ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'WAIT' && t('appointment.pending')) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'REPORT' && t('appointment.pending')) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' && t('appointment.pending')) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' && t('appointment.pending')) ||
+                                            (appointmentDetailsInRedux.meetingStatus === 'CANCEL' && t('appointment.cancelled'))
+                                        }
+                                    </Text>
+                                </View>
+                                {appointmentDetailsInRedux.details !== '' && (
                                         <Text
                                             style={{
                                                 marginBottom: 5,
                                                 marginTop: -5,
                                                 color: COLORS.gray,
                                             }}>
-                                            {appointmentDetails.details}
+                                            {appointmentDetailsInRedux.details}
                                         </Text>
                                     )}
+
 
                                 <View style={styles.information}>
                                     <Text style={{...styles.labelContainer, ...styles.textGray}}>
@@ -275,8 +297,7 @@ const AppointmentDetails = (props) => {
                                     )}
                                 </View>
 
-                                {appointmentDetails !== null &&
-                                    appointmentDetails.meetingStatus !== 'REPORT' && (
+                                {appointmentDetailsInRedux.meetingStatus !== 'REPORT' && (
                                         <>
                                             <View style={styles.information}>
                                                 <Text
@@ -353,8 +374,7 @@ const AppointmentDetails = (props) => {
                                     </Text>
                                 </View>
 
-                                {appointmentDetails !== null &&
-                                    appointmentDetails.meetingStatus === 'REPORT' && (
+                                {appointmentDetailsInRedux.meetingStatus === 'REPORT' && (
                                         <View style={{marginTop: 10}}>
                                             <Text style={globalStyles.titleH3}>
                                                 {t('appointmentDetails.date_proposition')} :
@@ -417,6 +437,7 @@ const AppointmentDetails = (props) => {
                                                                 textTransform: 'capitalize',
                                                                 ...styles.textGray,
                                                             } as StyleSheet}>
+
                                                             {i18n.language == 'en'
                                                                 ? `${format(dateEmployee, 'EEE', {
                                                                     locale: enUS,
@@ -514,6 +535,7 @@ const styles = StyleSheet.create({
     },
     appointmentDetails: {
         flexDirection: 'row',
+        marginTop: 20,
     },
     appointmentImage: {
         flex: 1,
@@ -532,25 +554,16 @@ const styles = StyleSheet.create({
         paddingLeft: 7,
     },
     validateStatus: {
-        width: 13,
-        height: 13,
-        borderRadius: 10,
-        marginTop: 5,
-        backgroundColor: COLORS.greenLight,
+        color: COLORS.greenTextSuccess,
+        backgroundColor: COLORS.greenExtraLight,
     },
     pendingStatus: {
-        width: 13,
-        height: 13,
-        borderRadius: 10,
-        marginTop: 5,
-        backgroundColor: COLORS.orange,
+        color: COLORS.orangeTextSuccess,
+        backgroundColor: COLORS.orangeExtraLight,
     },
     cancelStatus: {
-        width: 13,
-        height: 13,
-        borderRadius: 10,
-        marginTop: 5,
-        backgroundColor: COLORS.red,
+        color: COLORS.white,
+        backgroundColor: COLORS.redIms,
     },
     titleDetail: {
         fontWeight: '700',
@@ -756,4 +769,12 @@ const styles = StyleSheet.create({
         paddingRight: 15,
         paddingTop: 15,
     },
+    deleteAppointment: {
+        backgroundColor: COLORS.red,
+        color: COLORS.white,
+        fontSize: 11,
+        paddingHorizontal: 7,
+        paddingVertical: 4,
+        borderRadius:5
+    }
 });

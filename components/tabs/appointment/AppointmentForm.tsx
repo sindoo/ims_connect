@@ -1,558 +1,608 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Keyboard,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text, TextInput, TouchableOpacity,
+  Text,
+  TextInput,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import {useDispatch, useSelector} from "react-redux";
 import {useTranslation} from "react-i18next";
-import AppointmentService from "../../../services/AppointmentService";
 import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
-import DatesReservedModal from "./DatesReservedModal";
-import {MaterialIcons} from "@expo/vector-icons";
-import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
+import {MaterialIcons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {Formik} from "formik";
 import {format, getHours, getMinutes, getTime, set} from "date-fns";
 import {fromZonedTime} from "date-fns-tz";
 import {enUS, fr} from "date-fns/locale";
-import {request} from "../../../api/ApiManager";
-import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
-import {globalStyles} from "../../../style/Global";
-import DatePicker from "react-native-date-picker";
-import FlatButton from "../../ui/FlatButton";
 import DropDownPicker from "react-native-dropdown-picker";
+import DatePicker from "react-native-date-picker";
+import {Snackbar} from 'react-native-paper';
+import AppointmentService from "../../../services/AppointmentService";
+import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
+import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
+import {request} from "../../../api/ApiManager";
+import {globalStyles} from "../../../style/Global";
+import FlatButton from "../../ui/FlatButton";
+import DatesReservedModal from "./DatesReservedModal";
 
-
-const dataStartTime = [
+// Constantes extraites
+const DAYS_OFF = ['saturday', 'sunday'];
+const DATA_START_TIME = [
   {label: '15:30', value: 1},
   {label: '15:50', value: 2},
   {label: '16:10', value: 3},
 ];
 
-const dayListOff = ['saturday', 'sunday'];
+// Types
+interface AppointmentFormProps {
+  addModal: boolean;
+  setAddModal: (value: boolean) => void;
+  newAppointmentFormSchema: any;
+  teacherDest: any;
+  selectedChild: any;
+  employeesClassList: any[];
+  setTeacherDest: (value: any) => void;
+  snackbarShowMessage?: (message: string, duration?: number) => void;
+}
 
-function AppointmentForm(props: any) {
-  const {
-    addModal,
-    setAddModal,
-    newAppointmentFormSchema,
-    teacherDest,
-    selectedChild,
-    employeesClassList,
-    setTeacherDest,
-  } = props;
+interface FormValues {
+  appointmentTitle: string;
+  appointmentDescription: string;
+  appointmentTeacher: string;
+}
 
-  const dispatch = useDispatch();
+interface SnackbarState {
+  visible: boolean;
+  message: string;
+  duration: number;
+}
+
+const AppointmentForm: React.FC<AppointmentFormProps> = ({
+                                                           addModal,
+                                                           setAddModal,
+                                                           newAppointmentFormSchema,
+                                                           teacherDest,
+                                                           selectedChild,
+                                                           employeesClassList,
+                                                           setTeacherDest,
+                                                           snackbarShowMessage,
+                                                         }) => {
   const {t, i18n} = useTranslation();
+  const dispatch = useDispatch();
+  const {user} = useSelector((state: any) => state.user);
+
+  // États
+  const [date, setDate] = useState(new Date());
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(new Date());
+  const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [openEndTimePicker, setOpenEndTimePicker] = useState(false);
+  const [openStartTimeDropDown, setOpenStartTimeDropDown] = useState(false);
+  const [startTimeValue, setStartTimeValue] = useState<any>(null);
+  const [startTimeData, setStartTimeData] = useState(DATA_START_TIME);
+  const [openDates, setOpenDates] = useState(false);
+  const [openDatesData, setOpenDatesData] = useState<any[]>([]);
+  const [buttonStatus, setButtonStatus] = useState(false);
+
+  // États d'erreur
   const [errorMsgTeacher, setErrorMsgTeacher] = useState('');
   const [errorMsgToday, setErrorMsgToday] = useState('');
   const [errorMsgStartTime, setErrorMsgStartTime] = useState('');
   const [errorMsgDuty, setErrorMsgDuty] = useState('');
-  //const [date, setDate] = useState(new Date());
-  //const [startTime, setStartTime] = useState(new Date());
 
+  // État du Snackbar local
+  const [localSnackbar, setLocalSnackbar] = useState<SnackbarState>({
+    visible: false,
+    message: '',
+    duration: 3000,
+  });
+
+  const parentId = user?.userDetails?.personDetails?.person?.id;
+  const today = new Date();
   const newDate = new Date();
 
-  const [date, setDate] = useState(newDate);
-  const [startTime, setStartTime] = useState(newDate);
+  // Fonction pour afficher le snackbar localement
+  const showSnackbar = useCallback((message: string, duration = 3000) => {
+    setLocalSnackbar({
+      visible: true,
+      message,
+      duration,
+    });
+    // Appeler aussi le snackbar parent si nécessaire
+    if (snackbarShowMessage) {
+      snackbarShowMessage(message, duration);
+    }
+  }, [snackbarShowMessage]);
 
-  //const [openStartTime, setStartTimeOpen] = useState(false);
-  const [endTime, setEndTime] = useState(startTime);
-  const [openEndTime, setEndTimeOpen] = useState(false);
-  const [open, setOpen] = useState(false);
-  const today = newDate;
-  const [buttonStatus, setButtonStatus] = useState(false);
-  const [openDates, setOpenDates] = useState(false);
+  // Fonction pour fermer le snackbar
+  const hideSnackbar = useCallback(() => {
+    setLocalSnackbar(prev => ({...prev, visible: false}));
+  }, []);
 
-  const [openStartTimeHour, setOpenStartTimeHour] = useState(false);
-  const [startTimeValue, setStartTimeValue] = useState<any>(null);
-  const [startTimeData, setStartTimeData] = useState<any>(dataStartTime);
-  const {user} = useSelector((state: any) => state.user);
-  const parentId: any = user.userDetails.personDetails.person.id;
-  const [openDatesData, setOpenDatesData] = useState<any>([]);
-
-  const handleTeacherSelectChange = (item: any, index: number) => {
-    setTeacherDest(item);
-    setErrorMsgTeacher('');
-  };
-
-  const handleOpenDatesData = async () => {
-    setOpenDates(true);
-  }
-
+  // Chargement des dates réservées
   useEffect(() => {
     const loadDates = async () => {
-      const openDatesDataList =  await AppointmentService.getAppointmentByDate(selectedChild);
-      setOpenDatesData(openDatesDataList);
+      try {
+        if (!selectedChild) {
+          console.log('⚠️ Aucun enfant sélectionné');
+          return;
+        }
+
+        const openDatesDataList = await AppointmentService.getAppointmentByDate(selectedChild);
+        setOpenDatesData(openDatesDataList || []);
+      } catch (error) {
+        console.log('❌ Error loading dates:', error);
+        setOpenDatesData([]);
+      }
+    };
+
+    if (selectedChild) {
+      loadDates().catch(e => console.log('❌ Error in loadDates:', e));
+    }
+  }, [selectedChild]);
+
+  // Réinitialisation des champs de date/heure
+  const resetDateTimeFields = useCallback(() => {
+    setDate(new Date());
+    setStartTime(new Date());
+    setEndTime(new Date());
+    setStartTimeValue(null);
+  }, []);
+
+  // Gestion du changement d'heure de début
+  const handleStartTimeChange = useCallback((value: any) => {
+    const hourFind = DATA_START_TIME.find((hour: any) => hour.value === value);
+    if (hourFind) {
+      const [hours, minutes] = hourFind.label.split(':').map(Number);
+      const timeStart = set(date, {hours, minutes, seconds: 0});
+      const timeEnd = set(date, {hours, minutes: minutes + 20, seconds: 0});
+      setStartTime(timeStart);
+      setEndTime(timeEnd);
+      setErrorMsgStartTime('');
+    }
+  }, [date]);
+
+  // Vérification de la validité du jour
+  const isDayValid = useCallback((dateToCheck: Date) => {
+    const dayName = format(dateToCheck, 'EEEE', {locale: enUS}).toLowerCase();
+    return !DAYS_OFF.includes(dayName);
+  }, []);
+
+  // Vérification de la validité de la date
+  const isDateValid = useCallback((dateToCheck: Date) => {
+    const todayTimestamp = getTime(new Date());
+    return todayTimestamp <= getTime(dateToCheck);
+  }, []);
+
+  // Soumission du formulaire
+  const handleSubmit = useCallback(async (values: FormValues, actions: any) => {
+    setButtonStatus(true);
+
+    if (!startTimeValue) {
+      setErrorMsgStartTime(t('login.required_field'));
+      setButtonStatus(false);
+      showSnackbar(t('login.required_field'));
+      return;
     }
 
-    loadDates().catch(error => {
-      console.log(error);
+    if (!selectedChild) {
+      setButtonStatus(false);
+      showSnackbar(t('allAppointment.no_child_selected'));
+      return;
+    }
+
+    setErrorMsgTeacher('');
+    setErrorMsgStartTime('');
+    setErrorMsgToday('');
+    setErrorMsgDuty('');
+
+    const dayIsValid = isDayValid(date);
+    if (!dayIsValid) {
+      setErrorMsgDuty(t('allAppointment.no_duty'));
+      setButtonStatus(false);
+      showSnackbar(t('allAppointment.no_duty'));
+      return;
+    }
+
+    let dateDebut = set(date, {
+      hours: getHours(startTime),
+      minutes: getMinutes(startTime),
+      seconds: 0,
     });
+    let dateFin = set(date, {
+      hours: getHours(endTime),
+      minutes: getMinutes(endTime),
+      seconds: 0,
+    });
+
+    dateDebut = fromZonedTime(dateDebut, TIME_ZONE_ABIDJAN);
+    dateFin = fromZonedTime(dateFin, TIME_ZONE_ABIDJAN);
+
+    if (!isDateValid(dateDebut)) {
+      setErrorMsgToday(t('allAppointment.no_right_date'));
+      setButtonStatus(false);
+      showSnackbar(t('allAppointment.no_right_date'));
+      return;
+    }
+
+    const dataToSend = {
+      meetingType: 'NORMAL',
+      dateDebut: getTime(dateDebut),
+      dateFin: getTime(dateFin),
+      objet: values.appointmentTitle,
+      details: values.appointmentDescription,
+      maxInviter: 1,
+      dureeMeeting: 0,
+      deadlineUpdate: 0,
+      meetingStatus: 'WAIT',
+      totalCreneau: 1,
+      maxEnfantChoice: 0,
+      userInitor: 0,
+      creneauRdvs: [],
+      common: CONSTANT.common,
+    };
+
+    try {
+      const response = await request(
+          'POST',
+          '',
+          `/extra/rdv/mobile/normal/${selectedChild?.person.id}/${parentId}/${
+              selectedChild?.eleves?.length > 0 ? selectedChild?.eleves[0]?.classe?.id : null
+          }`,
+          dataToSend
+      );
+
+      dispatch(addNewAppointment(response.data));
+      actions.resetForm({
+        values: {
+          appointmentTitle: '',
+          appointmentDescription: '',
+          appointmentTeacher: '',
+        },
+      });
+      resetDateTimeFields();
+      setAddModal(false);
+      setStartTimeValue(null);
+
+      // Message de succès
+      showSnackbar(t('appointment.success_save'));
+    }
+    catch (error: any) {
+      if (error.response?.data?.codeMessage === 'RDV_DATE_NOT_FREE') {
+        setErrorMsgToday(t('allAppointment.rdv_date_not_free'));
+        showSnackbar(t('allAppointment.rdv_date_not_free'));
+      } else {
+        const errorMessage = error.response?.data?.message || t('snackBar.sb_error');
+        showSnackbar(errorMessage);
+      }
+      console.log('Error creating appointment:', error);
+    } finally {
+      setButtonStatus(false);
+    }
+  }, [startTimeValue, selectedChild, date, startTime, endTime, parentId, dispatch, setAddModal, resetDateTimeFields, t, isDayValid, isDateValid, showSnackbar]);
+
+  // Mémorisation du champ enfant
+  const childName = useMemo(() => {
+    if (!selectedChild) return '';
+    return `${selectedChild.person.prenom} ${selectedChild.person.nom}`;
   }, [selectedChild]);
+
+  // Gestion de l'ouverture du modal des dates réservées
+  const handleOpenDatesModal = useCallback(() => {
+    setOpenDates(true);
+  }, [openDatesData]);
+
+  // Gestion de la fermeture du modal principal
+  const handleCloseModal = useCallback(() => {
+    setAddModal(false);
+    resetDateTimeFields();
+    setStartTimeValue(null);
+    setErrorMsgTeacher('');
+    setErrorMsgToday('');
+    setErrorMsgStartTime('');
+    setErrorMsgDuty('');
+    hideSnackbar();
+  }, [setAddModal, resetDateTimeFields, hideSnackbar]);
 
   return (
       <>
-        <Modal visible={addModal} animationType="slide" style={{marginTop: 100}}>
+        <Modal visible={addModal} animationType="slide">
           <SafeAreaProvider>
-            <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
-            <DatesReservedModal
-                visibility={openDates}
-                setOpenDates={setOpenDates}
-                openDatesData={openDatesData}
-            />
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                  <View style={styles.modalTitle}>
-                    <Text style={styles.modalTitleText}>
-                      {t('allAppointment.new_appointment')}
-                    </Text>
+            <SafeAreaView style={styles.safeArea}>
+              <DatesReservedModal
+                  visibility={openDates}
+                  setOpenDates={setOpenDates}
+                  openDatesData={openDatesData}
+              />
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.modalContainer}>
+                  {/* Header */}
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalTitle}>
+                      <Text style={styles.modalTitleText}>
+                        {t('allAppointment.new_appointment')}
+                      </Text>
+                    </View>
+                    <TouchableWithoutFeedback onPress={handleCloseModal}>
+                      <MaterialIcons
+                          name="close"
+                          size={22}
+                          color={COLORS.gray}
+                      />
+                    </TouchableWithoutFeedback>
                   </View>
-                  <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <MaterialIcons
-                        name="close"
-                        size={22}
-                        color={COLORS.gray}
-                        onPress={() => {
-                          setAddModal(false);
+
+                  <ScrollView
+                      style={styles.modalContent}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                  >
+                    <Formik<FormValues>
+                        initialValues={{
+                          appointmentTitle: '',
+                          appointmentDescription: '',
+                          appointmentTeacher: '',
                         }}
-                    />
-                  </TouchableWithoutFeedback>
-                </View>
+                        validationSchema={newAppointmentFormSchema}
+                        onSubmit={handleSubmit}
+                    >
+                      {formikProps => (
+                          <>
+                            {/* Zone pour les messages d'erreur */}
+                            <View style={styles.errorContainer}>
+                              {errorMsgToday && (
+                                  <View style={styles.errorMessageContainer}>
+                                    <MaterialIcons
+                                        name="error-outline"
+                                        size={20}
+                                        color={COLORS.redIms}
+                                        style={styles.errorIcon}
+                                    />
+                                    <Text style={styles.errorMessageText}>
+                                      {errorMsgToday}
+                                    </Text>
+                                  </View>
+                              )}
+                              {errorMsgDuty && (
+                                  <View style={styles.errorMessageContainer}>
+                                    <MaterialIcons
+                                        name="warning"
+                                        size={20}
+                                        color={COLORS.orange}
+                                        style={styles.errorIcon}
+                                    />
+                                    <Text style={styles.errorMessageText}>
+                                      {errorMsgDuty}
+                                    </Text>
+                                  </View>
+                              )}
+                              {errorMsgStartTime && (
+                                  <View style={styles.errorMessageContainer}>
+                                    <MaterialIcons
+                                        name="info"
+                                        size={20}
+                                        color={COLORS.orange}
+                                        style={styles.errorIcon}
+                                    />
+                                    <Text style={styles.errorMessageText}>
+                                      {errorMsgStartTime}
+                                    </Text>
+                                  </View>
+                              )}
+                            </View>
 
-                <ScrollView style={styles.modalContent}>
-                  <Formik
-                      initialValues={{
-                        appointmentTitle: '',
-                        appointmentDescription: '',
-                        appointmentTeacher: '',
-                      }}
-                      validationSchema={newAppointmentFormSchema}
-                      onSubmit={(data: any, actions: any) => {
-                        setButtonStatus(true);
-                        //teacherDest !== null &&
-                        if (startTimeValue !== null && selectedChild !== null) {
-                          setErrorMsgTeacher('');
-                          setErrorMsgStartTime('');
-                          setErrorMsgToday('');
+                            {/* Champ Enfant */}
+                            <View style={styles.inputField}>
+                              <Text style={styles.modalInputLabel}>
+                                {t('allAppointment.child_field_label')}
+                              </Text>
+                              <TextInput
+                                  style={styles.inputModalDisabled}
+                                  editable={false}
+                                  value={childName}
+                              />
+                            </View>
 
-                          let dateDebut = set(date, {
-                            hours: getHours(startTime),
-                            minutes: getMinutes(startTime),
-                            seconds: 0,
-                          });
+                            {/* Champ Titre */}
+                            <View style={styles.inputField}>
+                              <Text style={styles.modalInputLabel}>
+                                {t('allAppointment.title_field_label')}
+                              </Text>
+                              <TextInput
+                                  style={styles.inputModal}
+                                  placeholder={t('allAppointment.title_placeholder')}
+                                  placeholderTextColor={COLORS.grayDarkLess}
+                                  onChangeText={formikProps.handleChange('appointmentTitle')}
+                                  value={formikProps.values.appointmentTitle}
+                                  onBlur={formikProps.handleBlur('appointmentTitle')}
+                              />
+                              {formikProps.touched.appointmentTitle && formikProps.errors.appointmentTitle && (
+                                  <Text style={globalStyles.errorText}>
+                                    {t('login.required_field')}
+                                  </Text>
+                              )}
+                            </View>
 
-                          let dateFin = set(date, {
-                            hours: getHours(endTime),
-                            minutes: getMinutes(endTime),
-                            seconds: 0,
-                          });
+                            {/* Champ Description */}
+                            <View style={styles.inputField}>
+                              <Text style={styles.modalInputLabel}>
+                                {t('allAppointment.description_field_label')}
+                              </Text>
+                              <TextInput
+                                  multiline
+                                  style={[styles.inputModal, styles.textArea]}
+                                  placeholder={t('allAppointment.description_placeholder')}
+                                  placeholderTextColor={COLORS.grayDarkLess}
+                                  onChangeText={formikProps.handleChange('appointmentDescription')}
+                                  value={formikProps.values.appointmentDescription}
+                                  onBlur={formikProps.handleBlur('appointmentDescription')}
+                              />
+                              {formikProps.touched.appointmentDescription && formikProps.errors.appointmentDescription && (
+                                  <Text style={globalStyles.errorText}>
+                                    {t('login.required_field')}
+                                  </Text>
+                              )}
+                            </View>
 
-                          dateDebut = fromZonedTime(dateDebut, TIME_ZONE_ABIDJAN);
-                          dateFin = fromZonedTime(dateFin, TIME_ZONE_ABIDJAN);
-
-                          const dataToSend = {
-                            //id: 0,
-                            meetingType: 'NORMAL',
-                            dateDebut: getTime(dateDebut),
-                            dateFin: getTime(dateFin),
-                            objet: data.appointmentTitle,
-                            details: data.appointmentDescription,
-                            maxInviter: 1,
-                            dureeMeeting: 0,
-                            deadlineUpdate: 0,
-                            meetingStatus: 'WAIT',
-                            totalCreneau: 1,
-                            maxEnfantChoice: 0,
-                            userInitor: 0,
-                            creneauRdvs: [],
-                            common: CONSTANT.common,
-                          };
-
-                          const theDay = format(date, 'EEEE', {locale: enUS});
-                          if (!dayListOff.includes(theDay.toLowerCase())) {
-                            //const todayTime = newDate; //toZonedTime(new Date(), TIME_ZONE_ABIDJAN);
-                            let today = getTime(newDate);
-
-                            if(today <= getTime(dateDebut)) {
-                              setErrorMsgDuty('');
-                              setErrorMsgToday('');
-
-                              request(
-                                  'POST',
-                                  '',
-                                  `/extra/rdv/mobile/normal/${selectedChild?.person.id}/${parentId}/${
-                                      selectedChild?.eleves.length> 0 ? selectedChild?.eleves[0]?.classe?.id : null
-                                  }`,
-                                  dataToSend
-                              )
-                                  .then(response => {
-                                    dispatch(addNewAppointment(response.data));
-                                    actions.resetForm({
-                                      values: {
-                                        appointmentTitle: '',
-                                        appointmentDescription: '',
-                                        appointmentTeacher: '',
-                                      },
-                                    });
-
-                                    setDate(new Date());
-                                    setStartTime(new Date());
-                                    setEndTime(new Date());
-                                    setAddModal(false);
-                                    setStartTimeValue(1);
-                                    setButtonStatus(false);
-                                  })
-                                  .catch(error => {
-                                    setButtonStatus(false);
-                                    if (error.response) {
-                                      const msgToDisplay = error.response.data;
-                                      if(msgToDisplay?.codeMessage === 'RDV_DATE_NOT_FREE') {
-                                        setErrorMsgToday(t('allAppointment.rdv_date_not_free'));
-                                      }
-                                      console.log(msgToDisplay);
-                                    }
-                                    else {
-                                      console.log(error.config);
-                                    }
-                                  });
-                            }
-                            else {
-                              setButtonStatus(false);
-                              setErrorMsgToday(t('allAppointment.no_right_date'));
-                            }
-                          }
-                          else {
-                            setButtonStatus(false);
-                            setErrorMsgDuty(t('allAppointment.no_duty'));
-                          }
-                        }
-                        else {
-                          setButtonStatus(false);
-                          setErrorMsgTeacher(t('login.required_field'));
-                          if (teacherDest !== null) {
-                            setErrorMsgTeacher('');
-                          }
-
-                          setErrorMsgStartTime(t('login.required_field'));
-                          if (startTimeValue !== null) {
-                            setErrorMsgStartTime('');
-                          }
-                        }
-                      }}>
-                    {formikProps => (
-                        <>
-                          {errorMsgToday && (
-                              <Text style={{color: COLORS.redIms, textAlign: 'center', marginBottom:10} as StyleSheet}>{errorMsgToday}</Text>
-                          )}
-
-                          <View style={styles.inputField}>
-                            <Text style={styles.modalInputLabel}>
-                              {t('allAppointment.child_field_label')}
-                            </Text>
-                            <TextInput
-                                style={{...styles.inputModal, color: COLORS.grayDarkLess}}
-                                editable={false}
-                                value={
-                                  selectedChild !== null
-                                      ? `${selectedChild.person.prenom} ${selectedChild.person.nom}`
-                                      : ''
-                                }
-                            />
-                          </View>
-
-                          <View style={styles.inputField}>
-                            <Text style={styles.modalInputLabel}>
-                              {t('allAppointment.title_field_label')}
-                            </Text>
-                            <TextInput
-                                style={styles.inputModal}
-                                placeholder={t('allAppointment.title_placeholder')}
-                                placeholderTextColor={COLORS.grayDarkLess}
-                                onChangeText={formikProps.handleChange(
-                                    'appointmentTitle',
-                                )}
-                                value={formikProps.values.appointmentTitle}
-                                onBlur={formikProps.handleBlur('appointmentTitle')}
-                            />
-                            <Text style={{...globalStyles.errorText}}>
-                              {formikProps.touched.appointmentTitle &&
-                                  formikProps.errors.appointmentTitle && (
-                                      <Text>{t('login.required_field')}</Text>
-                                  )}
-                            </Text>
-                          </View>
-
-                          <View style={styles.inputField}>
-                            <Text style={styles.modalInputLabel}>
-                              {t('allAppointment.description_field_label')}
-                            </Text>
-                            <TextInput
-                                multiline
-                                style={styles.inputModal}
-                                placeholder={t(
-                                    'allAppointment.description_placeholder',
-                                )}
-                                placeholderTextColor={COLORS.grayDarkLess}
-                                onChangeText={formikProps.handleChange(
-                                    'appointmentDescription',
-                                )}
-                                value={formikProps.values.appointmentDescription}
-                                onBlur={formikProps.handleBlur(
-                                    'appointmentDescription',
-                                )}
-                            />
-                            <Text style={{...globalStyles.errorText}}>
-                              {formikProps.touched.appointmentDescription &&
-                                  formikProps.errors.appointmentDescription && (
-                                      <Text>{t('login.required_field')}</Text>
-                                  )}
-                            </Text>
-                          </View>
-
-                          <View style={styles.inputField}>
-                            <View style={{flexDirection: "row"} as StyleSheet}>
-                              <View style={{flex: 2}}>
-                                <Text style={styles.modalInputLabel}>
-                                  {t('allAppointment.date_field_label')}
-                                </Text>
-                              </View>
-                              <View>
-                                <TouchableOpacity onPress={() => handleOpenDatesData()} style={styles.boxTimeNotAvailable}>
-                                  <MaterialIcons name="info-outline" color={COLORS.primary} size={15} style={{marginRight: 3}} />
-                                  <Text style={styles.textTimeNotAvailable}>{t('allAppointment.time_not_available')}</Text>
+                            {/* Champ Date */}
+                            <View style={styles.inputField}>
+                              <View style={styles.dateHeaderRow}>
+                                <View style={styles.dateHeaderLabel}>
+                                  <Text style={styles.modalInputLabel}>
+                                    {t('allAppointment.date_field_label')}
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={handleOpenDatesModal}
+                                    style={styles.timeNotAvailableButton}
+                                >
+                                  <MaterialIcons
+                                      name="info"
+                                      color={COLORS.primary}
+                                      size={15}
+                                      style={styles.infoIcon}
+                                  />
+                                  <Text style={styles.timeNotAvailableText}>
+                                    {t('allAppointment.time_not_available')}
+                                  </Text>
                                 </TouchableOpacity>
                               </View>
+                              <Pressable onPress={() => setOpenDatePicker(true)}>
+                                <Text style={styles.inputModal}>
+                                  {format(date, 'P', {
+                                    locale: i18n.language === 'en' ? enUS : fr,
+                                  })}
+                                </Text>
+                              </Pressable>
                             </View>
-                            <Pressable onPress={() => setOpen(true)}>
-                              <Text style={styles.inputModal}>
-                                {format(date, 'P', {locale: i18n.language === 'en' ? enUS : fr,})}
-                              </Text>
-                            </Pressable>
-                          </View>
-                          <DatePicker
-                              modal
-                              open={open}
-                              date={date}
-                              mode="date"
-                              minimumDate={today}
-                              locale={i18n.language}
-                              onConfirm={date => {
-                                setOpen(false);
-                                setDate(date);
-                                setErrorMsgDuty('');
-                              }}
-                              onCancel={() => {
-                                setOpen(false);
-                              }}
-                          />
-                          {errorMsgDuty !== '' && (
-                              <View style={{...styles.inputField, zIndex: 0}}>
-                                <Text
-                                    style={{
-                                      ...globalStyles.errorText,
-                                      marginTop: -8,
-                                      paddingTop: 0,
-                                      zIndex: 0,
-                                    }}>
-                                  {errorMsgDuty}
-                                </Text>
-                              </View>
-                          )}
 
-                          <View style={{...styles.inputField, zIndex: 2}}>
-                            <Text style={styles.modalInputLabel}>
-                              {t('allAppointment.startime_field_label')}
-                            </Text>
-                            <DropDownPicker
-                                open={openStartTimeHour}
-                                value={startTimeValue}
-                                items={startTimeData}
-                                setOpen={setOpenStartTimeHour}
-                                setValue={setStartTimeValue}
-                                setItems={setStartTimeData}
-                                listMode="SCROLLVIEW"
-                                onChangeValue={startTimeValue => {
-                                  const startHourFind: any = dataStartTime.find(
-                                      (hour: any) => hour.value == startTimeValue,
-                                  );
-                                  const startHourTab = startHourFind.label.split(':');
-
-                                  const timeStart = set(date, {
-                                    hours: parseInt(startHourTab[0]),
-                                    minutes: parseInt(startHourTab[1]),
-                                    seconds: 0,
-                                  });
-                                  setStartTime(timeStart);
-
-                                  const timeEnd = set(date, {
-                                    hours: parseInt(startHourTab[0]),
-                                    minutes: parseInt(startHourTab[1]) + 20,
-                                    seconds: 0,
-                                  });
-                                  setEndTime(timeEnd);
-                                  setErrorMsgStartTime('');
+                            <DatePicker
+                                modal
+                                open={openDatePicker}
+                                date={date}
+                                mode="date"
+                                minimumDate={today}
+                                locale={i18n.language}
+                                onConfirm={(selectedDate) => {
+                                  setOpenDatePicker(false);
+                                  setDate(selectedDate);
+                                  setErrorMsgDuty('');
                                 }}
-                                //disabled={true}
-                                placeholder={t('allAppointment.startime_field_label')}
-                                style={{
-                                  borderRadius: 4,
-                                  borderColor: COLORS.grayMedium,
-                                  padding: 0,
-                                }}
-                                dropDownContainerStyle={{
-                                  borderColor: COLORS.grayMedium,
-                                  borderRadius: 4,
-                                }}
-                                labelStyle={{
-                                  color: COLORS.gray,
-                                  fontSize: 16,
-                                  padding: 0,
-                                }}
-                                containerStyle={{
-                                  borderColor: COLORS.grayLight,
-                                  padding: 0,
-                                }}
-                                placeholderStyle={{
-                                  color: COLORS.gray,
-                                  fontSize: 16,
-                                }}
-                                listItemLabelStyle={{
-                                  fontSize: 16,
-                                  color: COLORS.gray,
-                                }}
-                                // @ts-ignore
-                                language={i18n.language.toUpperCase()}
+                                onCancel={() => setOpenDatePicker(false)}
                             />
-                          </View>
-                          {errorMsgStartTime !== '' && (
-                              <View style={{...styles.inputField, zIndex: 0}}>
-                                <Text
-                                    style={{
-                                      ...globalStyles.errorText,
-                                      marginTop: -8,
-                                      paddingTop: 0,
-                                      zIndex: 0,
-                                    }}>
-                                  {errorMsgStartTime}
-                                </Text>
-                              </View>
-                          )}
 
-                          <View
-                              style={{
-                                ...styles.inputField,
-                                marginBottom: 40,
-                                zIndex: 1,
-                              }}>
-                            <Text style={styles.modalInputLabel}>
-                              {t('allAppointment.endtime_field_label')}
-                            </Text>
-                            <Pressable onPress={() => setEndTimeOpen(false)}>
-                              <Text style={styles.inputModal}>
-                                {format(endTime, 'p', {locale: i18n.language === 'en' ? enUS : fr,})}
+                            {/* Champ Heure de début */}
+                            <View style={[styles.inputField, {zIndex: 2}]}>
+                              <Text style={styles.modalInputLabel}>
+                                {t('allAppointment.startime_field_label')}
                               </Text>
-                            </Pressable>
-                          </View>
-                          <DatePicker
-                              modal
-                              open={openEndTime}
-                              date={endTime}
-                              minimumDate={startTime}
-                              mode="time"
-                              locale={i18n.language}
-                              onConfirm={endTime => {
-                                setEndTimeOpen(false);
-                                setEndTime(endTime);
-                              }}
-                              onCancel={() => {
-                                setEndTimeOpen(false);
-                              }}
-                              style={{zIndex: 1}}
-                          />
+                              <DropDownPicker
+                                  open={openStartTimeDropDown}
+                                  value={startTimeValue}
+                                  items={startTimeData}
+                                  setOpen={setOpenStartTimeDropDown}
+                                  setValue={setStartTimeValue}
+                                  setItems={setStartTimeData}
+                                  listMode="SCROLLVIEW"
+                                  onChangeValue={handleStartTimeChange}
+                                  placeholder={t('allAppointment.startime_field_label')}
+                                  style={styles.dropdownStyle}
+                                  dropDownContainerStyle={styles.dropdownContainerStyle}
+                                  labelStyle={styles.dropdownLabelStyle}
+                                  containerStyle={styles.dropdownContainer}
+                                  placeholderStyle={styles.dropdownPlaceholderStyle}
+                                  listItemLabelStyle={styles.dropdownListItemStyle}
+                                  // @ts-ignore
+                                  language={i18n.language.toUpperCase()}
+                              />
+                            </View>
 
-                          <FlatButton
-                              title={t('allAppointment.save_form')}
-                              fontWeight="500"
-                              fontSize={16}
-                              backgroundColor={COLORS.secondary}
-                              paddingVertical={12}
-                              borderRadius={20}
-                              onPress={formikProps.handleSubmit}
-                              disabled={buttonStatus}
-                          />
-                        </>
-                    )}
-                  </Formik>
+                            {/* Champ Heure de fin */}
+                            <View style={[styles.inputField, {marginBottom: 40, zIndex: 1}]}>
+                              <Text style={styles.modalInputLabel}>
+                                {t('allAppointment.endtime_field_label')}
+                              </Text>
+                              <Pressable onPress={() => setOpenEndTimePicker(true)}>
+                                <Text style={styles.inputModal}>
+                                  {format(endTime, 'p', {
+                                    locale: i18n.language === 'en' ? enUS : fr,
+                                  })}
+                                </Text>
+                              </Pressable>
+                            </View>
 
-                  <View style={{marginTop: 20}} />
-                </ScrollView>
-              </View>
-            </TouchableWithoutFeedback>
-          </SafeAreaView>
+                            <DatePicker
+                                modal
+                                open={openEndTimePicker}
+                                date={endTime}
+                                minimumDate={startTime}
+                                mode="time"
+                                locale={i18n.language}
+                                onConfirm={(selectedEndTime) => {
+                                  setOpenEndTimePicker(false);
+                                  setEndTime(selectedEndTime);
+                                }}
+                                onCancel={() => setOpenEndTimePicker(false)}
+                            />
+
+                            {/* Bouton de soumission */}
+                            <FlatButton
+                                title={t('allAppointment.save_form')}
+                                fontWeight="500"
+                                fontSize={16}
+                                backgroundColor={COLORS.secondary}
+                                paddingVertical={12}
+                                borderRadius={20}
+                                onPress={formikProps.handleSubmit}
+                                disabled={buttonStatus}
+                            />
+                          </>
+                      )}
+                    </Formik>
+                    <View style={styles.bottomSpacer} />
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+
+              {/* Snackbar intégré dans le modal */}
+              <Snackbar
+                  style={styles.snackbar}
+                  visible={localSnackbar.visible}
+                  onDismiss={hideSnackbar}
+                  duration={localSnackbar.duration}
+                  elevation={3}
+                  action={{
+                    label: '',
+                    icon: () => (
+                        <MaterialCommunityIcons
+                            name="close"
+                            size={22}
+                            color={COLORS.white}
+                        />
+                    ),
+                    onPress: hideSnackbar,
+                  }}
+              >
+                {localSnackbar.message}
+              </Snackbar>
+            </SafeAreaView>
           </SafeAreaProvider>
         </Modal>
       </>
   );
-}
+};
 
 export default AppointmentForm;
-//export default withSnackbar(AppointmentForm);
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    paddingTop: 15,
-    backgroundColor: COLORS.white,
-  },
-  backgroundImage: {
-    flex: 1,
-    paddingLeft: 10,
-    paddingRight: 10,
-  },
-  floatinBtn: {
-    width: 50,
-    height: 50,
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 30,
-    bottom: 5,
-    right: 1,
-    elevation: 2,
-    backgroundColor: COLORS.secondary,
-  },
-  searchContainer: {
-    padding: 10,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    marginTop: 10,
-    padding: 6,
-    paddingLeft: 10,
-    paddingRight: 10,
-    backgroundColor: COLORS.grayVeryLight,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    padding: 3,
-    fontSize: 16,
-    borderRadius: 0,
-    color: COLORS.gray,
-    marginLeft: 4,
-  },
-  listContainer: {
-    flex: 1,
-    padding: 10,
-    paddingTop: 15,
+    backgroundColor: 'transparent',
   },
   modalContainer: {
     flex: 1,
@@ -577,18 +627,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 20,
   },
-  inputModal: {
-    borderWidth: 1,
-    borderColor: COLORS.grayMedium,
-    padding: 10,
-    fontSize: 16,
-    borderRadius: 4,
-    zIndex: 0,
-    color: COLORS.gray,
-  },
-  textGray: {
-    color: COLORS.gray,
-  },
   inputField: {
     marginBottom: 15,
   },
@@ -600,65 +638,101 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
     paddingBottom: 5,
   },
-  dropdown3BtnStyle: {
-    width: '100%',
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 0,
+  inputModal: {
     borderWidth: 1,
-    borderRadius: 6,
     borderColor: COLORS.grayMedium,
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 4,
+    color: COLORS.gray,
+    zIndex: 0,
   },
-  dropdown3BtnChildStyle: {
-    flex: 1,
+  inputModalDisabled: {
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 4,
+    color: COLORS.grayDarkLess,
+    zIndex: 0,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  errorContainer: {
+    marginBottom: 8,
+    minHeight: 15,
+  },
+  errorMessageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    backgroundColor: '#FEF3F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
   },
-  dropdown3BtnImage: {
-    width: 35,
-    height: 35,
-    resizeMode: 'cover',
-    borderRadius: 35,
+  errorIcon: {
+    marginRight: 8,
   },
-  dropdown3BtnTxt: {
+  errorMessageText: {
     flex: 1,
-    color: COLORS.gray,
-    textAlign: 'left',
-    fontSize: 16,
-    marginHorizontal: 12,
+    color: COLORS.redIms,
+    fontSize: 14,
   },
-  dropdown3DropdownStyle: {
-    backgroundColor: COLORS.white,
-  },
-  dropdown3RowStyle: {
-    borderColor: COLORS.grayVeryLight,
-    borderBottomColor: COLORS.grayVeryLight,
-  },
-  dropdown3RowChildStyle: {
-    flex: 1,
+  dateHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+  },
+  dateHeaderLabel: {
+    flex: 2,
+  },
+  timeNotAvailableButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
   },
-  dropdownRowImage: {
-    width: 35,
-    height: 35,
-    resizeMode: 'cover',
-    borderRadius: 35,
+  infoIcon: {
+    marginRight: 3,
   },
-  dropdown3RowTxt: {
-    color: COLORS.gray,
-    textAlign: 'center',
-    fontSize: 16,
-    marginHorizontal: 12,
-  },
-  boxTimeNotAvailable: {
-    flexDirection: "row"
-  },
-  textTimeNotAvailable: {
+  timeNotAvailableText: {
     color: COLORS.primary,
     fontSize: 12,
-    fontStyle: "italic"
-  }
+    fontStyle: 'italic',
+  },
+  dropdownStyle: {
+    borderRadius: 4,
+    borderColor: COLORS.grayMedium,
+    padding: 0,
+  },
+  dropdownContainerStyle: {
+    borderColor: COLORS.grayMedium,
+    borderRadius: 4,
+  },
+  dropdownLabelStyle: {
+    color: COLORS.gray,
+    fontSize: 16,
+    padding: 0,
+  },
+  dropdownContainer: {
+    borderColor: COLORS.grayLight,
+    padding: 0,
+  },
+  dropdownPlaceholderStyle: {
+    color: COLORS.gray,
+    fontSize: 16,
+  },
+  dropdownListItemStyle: {
+    fontSize: 16,
+    color: COLORS.gray,
+  },
+  snackbar: {
+    backgroundColor: COLORS.gray,
+    marginBottom: 20,
+    marginHorizontal: 15,
+    zIndex: 999,
+  },
+  bottomSpacer: {
+    marginTop: 20,
+  },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import ViewThemed from "../../../../components/ui/ViewThemed";
 import {View, Text, ScrollView, StyleSheet} from "react-native";
 import {globalStyles} from "../../../../style/Global";
@@ -7,16 +7,47 @@ import {useSelector} from "react-redux";
 import {COLORS} from "../../../../constants";
 import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
 import AppointmentItem from "../../../../components/tabs/appointment/AppointmentItem";
+import * as yup from "yup";
+import AppointmentForm from "../../../../components/tabs/appointment/AppointmentForm";
+import FlatButton from "../../../../components/ui/FlatButton";
 
+const newAppointmentFormSchema = yup.object({
+    appointmentTitle: yup.string().required().min(3),
+    appointmentDescription: yup.string().required().min(3),
+});
 const UpcomingAppointment = (props) => {
     const {snackbarShowMessage} = props;
     const {t} = useTranslation();
     const {todayListAppointments, upcomingListAppointments} = useSelector(
         (state: any) => state.appointment,
     );
+    const [addModal, setAddModal] = useState(false);
+    const {selectedChild} = useSelector((state: any) => state.child);
+    const {teacherSelected, employeesClassList} = useSelector(
+        (state: any) => state.employee,
+    );
+    const [teacherDest, setTeacherDest] = useState<any>(null);
 
     return (
         <ViewThemed style={{...globalStyles.container}}>
+            <View style={{paddingTop: 20, paddingBottom:20, backgroundColor: COLORS.grayExtraLight}}>
+                <View style={{paddingHorizontal:40}}>
+                    <FlatButton
+                        title={t('allAppointment.take_appointment')}
+                        fontWeight="500"
+                        fontSize={16}
+                        backgroundColor={COLORS.secondary}
+                        paddingVertical={10}
+                        borderRadius={20}
+                        onPress={() => {
+                            setTeacherDest(null);
+                            setAddModal(true);
+                        }}
+                        disabled={false}
+                    />
+                </View>
+            </View>
+
             <ScrollView style={styles.container}>
                 <View style={styles.todayAppointmentContainer}>
                     <Text style={{...globalStyles.title}}>
@@ -59,6 +90,18 @@ const UpcomingAppointment = (props) => {
                         </View>
                     )}
                 </View>
+
+                <AppointmentForm
+                    addModal={addModal}
+                    setAddModal={setAddModal}
+                    newAppointmentFormSchema={newAppointmentFormSchema}
+                    teacherDest={teacherDest}
+                    selectedChild={selectedChild}
+                    teacherSelected={teacherSelected}
+                    employeesClassList={employeesClassList}
+                    setTeacherDest={setTeacherDest}
+                    snackbarShowMessage={snackbarShowMessage}
+                />
             </ScrollView>
         </ViewThemed>
     );
@@ -72,6 +115,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         padding: 10,
         paddingBottom: 20,
+        paddingTop:0,
     },
     todayAppointmentContainer: {
         paddingTop: 15,

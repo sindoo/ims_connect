@@ -21,6 +21,8 @@ export default {
     blackDark: '#000000',
     orangeLight: '#FF8A65',
     orange: '#DCA822',
+    orangeExtraLight: '#FEF3C7',
+    orangeTextSuccess: '#B45309',
     red: '#DC2D22',
     blueLight: '#D3DFE8',
     yellowIms: '#fadb13',
@@ -33,6 +35,8 @@ export default {
     yellowDark: '#FFA500',
     greyMedium: '#EFEFEF',
     grayLightIcon: '#868686',
+    greenExtraLight: '#DCFCE7',
+    greenTextSuccess: '#166032',
 
     dark: {
         primary: '#E76FA5',

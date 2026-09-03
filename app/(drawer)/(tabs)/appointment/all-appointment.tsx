@@ -21,6 +21,7 @@ import AppointmentForm from "../../../../components/tabs/appointment/Appointment
 import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
 import FloatingButton from "../../../../components/ui/FloatingButton";
 import * as yup from 'yup';
+import FlatButton from "../../../../components/ui/FlatButton";
 
 const newAppointmentFormSchema = yup.object({
     appointmentTitle: yup.string().required().min(3),
@@ -83,6 +84,23 @@ const AppointmentHome = (props) => {
 
     return (
         <ViewThemed style={{...globalStyles.container}}>
+            <View style={{paddingTop: 20, paddingBottom:20, backgroundColor: COLORS.grayExtraLight}}>
+                <View style={{paddingHorizontal:40}}>
+                    <FlatButton
+                        title={t('allAppointment.take_appointment')}
+                        fontWeight="500"
+                        fontSize={16}
+                        backgroundColor={COLORS.secondary}
+                        paddingVertical={10}
+                        borderRadius={20}
+                        onPress={() => {
+                            setTeacherDest(null);
+                            setAddModal(true);
+                        }}
+                        disabled={false}
+                    />
+                </View>
+            </View>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}} enabled={true}>
                 <View style={styles.container}>
                     <View style={styles.searchContainer}>
@@ -135,14 +153,14 @@ const AppointmentHome = (props) => {
                         />
                     </ScrollView>
 
-                    <View style={styles.floatinBtn}>
+                    {/*<View style={styles.floatinBtn}>
                         <FloatingButton
                             onPress={() => {
                                 setTeacherDest(null);
                                 setAddModal(true);
                             }}
                         />
-                    </View>
+                    </View>*/}
                 </View>
             </KeyboardAvoidingView>
         </ViewThemed>
@@ -154,7 +172,7 @@ export default withSnackbar(AppointmentHome);
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 15,
+        paddingTop: 0,
         backgroundColor: COLORS.white,
     },
     backgroundImage: {

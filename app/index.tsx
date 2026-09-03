@@ -21,7 +21,10 @@ const ProfileChoice = () => {
 
     const handleSelectChildProfile = (child: any) => {
         dispatch(changeChild(child));
-        router.push(ROUTES.HOME_DRAWER);
+        // ✅ Petit délai pour éviter les conflits de navigation
+        setTimeout(() => {
+            router.push(ROUTES.HOME_DRAWER);
+        }, 100);
     };
 
     useEffect(() => {

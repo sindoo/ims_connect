@@ -104,7 +104,14 @@
         "empty_appointment": "No appointments",
         "no_action_available": "Beyond the duration of modification defined, no action is possible",
         "time_slot": "Time",
-        "no_teacher_selected": "Teachers of"
+        "no_teacher_selected": "Teachers of",
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "cancelled": "cancelled",
+        "delete": "Delete",
+        "success_save": "Appointment created succussfully",
+        "success_update": "Appointment updated succussfully",
+        "success_delete": "Appointment deleted succussfully"
     },
     "upcomingAppointment": {
         "today": "Today",
@@ -142,7 +149,8 @@
         "information_text_dates_not_available": "The list of dates already booked by other parents that can no longer be chosen",
         "empty_open_date": "No  date Reserved",
         "edit_change_time_slot_preset": "Modify or change the appointment time slot",
-        "cannot_edit_preset_appointment": "You do not have the rights to modify this appointment because you are not the parent who selected the time slot."
+        "cannot_edit_preset_appointment": "You do not have the rights to modify this appointment because you are not the parent who selected the time slot.",
+        "take_appointment": "Take an appointment"
     },
     "presetAppointment": {
         "date_start": "Date start",

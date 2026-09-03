@@ -85,7 +85,7 @@ function AppointmentItem(props: any) {
               resizeMode="cover"
               style={styles.appointImageCover}
             />
-            <View
+            {/*<View
               style={
                 (data.meetingType === 'NORMAL' &&
                   data.meetingStatus === 'CONFIRM' &&
@@ -104,7 +104,7 @@ function AppointmentItem(props: any) {
                   styles.pendingStatus) ||
                 (data.meetingStatus === 'CANCEL' && styles.cancelStatus)
               }
-            />
+            />*/}
           </View>
           <View style={styles.appointmentDetails}>
             <Text style={styles.titleDetail}>{data.objet}</Text>
@@ -121,6 +121,39 @@ function AppointmentItem(props: any) {
               {t('appointment.time_slot')} : {startTime} - {endTime}
             </Text>
             {/*<ButtonActionStatus data={data} snackbarShowMessage={snackbarShowMessage} />*/}
+            <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+              <Text style={{marginVertical: 5, padding:3, paddingHorizontal:7, fontSize: 11, fontWeight: 400, borderRadius: 5, ...((data.meetingType === 'NORMAL' &&
+                        data.meetingStatus === 'CONFIRM' &&
+                        styles.validateStatus) ||
+                    (indexCrenauChoice !== -1 &&
+                        data.meetingType === 'PRESET' &&
+                        data?.creneauRdvs[indexCrenauChoice]
+                            ?.creneauRdvEnfantParents[0]?.meetingStatus === 'CONFIRM' &&
+                        styles.validateStatus) ||
+                    (data.meetingStatus === 'NOT_RESPECTED' &&
+                        styles.validateStatus) ||
+                    (data.meetingStatus === 'WAIT' && styles.pendingStatus) ||
+                    (data.meetingStatus === 'REPORT' && styles.pendingStatus) ||
+                    (data.meetingStatus === 'NOT_HELD' && styles.pendingStatus) ||
+                    (data.meetingStatus === 'PARTIAL_CONFIRM' &&
+                        styles.pendingStatus) ||
+                    (data.meetingStatus === 'CANCEL' && styles.cancelStatus))} as StyleSheet }>
+                {
+
+                    data.meetingType === 'NORMAL' &&
+                    data.meetingStatus === 'CONFIRM' &&
+                    t('appointment.confirmed') ||
+                    (indexCrenauChoice !== -1 && data.meetingType === 'PRESET' && data?.creneauRdvs[indexCrenauChoice]?.creneauRdvEnfantParents[0]?.meetingStatus === 'CONFIRM' && t('appointment.confirmed')) ||
+                    data.meetingStatus === 'NOT_RESPECTED' &&
+                    t('appointment.confirmed') ||
+                    (data.meetingStatus === 'WAIT' && t('appointment.pending')) ||
+                    (data.meetingStatus === 'REPORT' && t('appointment.pending')) ||
+                    (data.meetingStatus === 'NOT_HELD' && t('appointment.pending')) ||
+                    (data.meetingStatus === 'PARTIAL_CONFIRM' && t('appointment.pending')) ||
+                    (data.meetingStatus === 'CANCEL' && t('appointment.cancelled'))
+                }
+              </Text>
+            </View>
           </View>
 
           <View style={styles.dateContainer}>
@@ -187,27 +220,40 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
   },
-  validateStatus: {
+  /*validateStatus: {
     width: 13,
     height: 13,
     borderRadius: 10,
     marginTop: 5,
     backgroundColor: COLORS.greenLight,
+  },*/
+  validateStatus: {
+    color: COLORS.greenTextSuccess,
+    backgroundColor: COLORS.greenExtraLight,
   },
   pendingStatus: {
+    color: COLORS.orangeTextSuccess,
+    backgroundColor: COLORS.orangeExtraLight,
+  },
+  cancelStatus: {
+    color: COLORS.white,
+    backgroundColor: COLORS.redIms,
+  },
+ /* pendingStatus: {
     width: 13,
     height: 13,
     borderRadius: 10,
     marginTop: 5,
     backgroundColor: COLORS.orange,
-  },
-  cancelStatus: {
+  },*/
+
+  /*cancelStatus: {
     width: 13,
     height: 13,
     borderRadius: 10,
     marginTop: 5,
     backgroundColor: COLORS.red,
-  },
+  },*/
   titleDetail: {
     fontWeight: '700',
     fontSize: 14,

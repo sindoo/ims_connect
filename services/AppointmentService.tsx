@@ -2,6 +2,9 @@ import {getRequest} from "../api/ApiManager";
 import _ from "lodash";
 
 class AppointmentService {
+  static getAppointmentById = async (appointmentId: number) => {
+    return await getRequest('', `/extra/rdv/${appointmentId}`);
+  }
   static getAllAppointment = async (selectedChildId: number) => {
     let allAppointmentListReq:any = [];
     const allAppointmentRequest:any = await getRequest('', '/extra/rdv');

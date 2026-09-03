@@ -104,7 +104,14 @@
         "empty_appointment": "Aucun rendez-vous pour le moment",
         "no_action_available": "Au-delà de la durée de modification définie, aucune action n'est possible",
         "time_slot": "Heure",
-        "no_teacher_selected": "Educateur-rice"
+        "no_teacher_selected": "Educateur-rice",
+        "pending": "En attente de confirmation",
+        "confirmed": "Confirmé",
+        "cancelled": "Annulé",
+        "delete": "Supprimer",
+        "success_save": "Succès de l'enregistrement du RDV",
+        "success_update": "Succès de la modification du RDV",
+        "success_delete": "Succès de la suppression du RDV"
     },
     "upcomingAppointment": {
         "today": "Ajourd'hui",
@@ -142,7 +149,8 @@
         "information_text_dates_not_available": "La liste des dates déjà réservées par d'autres parents qui ne peuvent plus être choisies",
         "empty_open_date": "Aucune date Réservée",
         "edit_change_time_slot_preset": "Modifier ou changer le créneau horaire",
-        "cannot_edit_preset_appointment": "Vous n'avez pas les droits pour modifier ce rendez-vous car vous n'êtes pas le parent ayant effectué le choix du creneau horaire"
+        "cannot_edit_preset_appointment": "Vous n'avez pas les droits pour modifier ce rendez-vous car vous n'êtes pas le parent ayant effectué le choix du creneau horaire",
+        "take_appointment": "Prendre un rendez-vous"
     },
     "presetAppointment": {
         "date_start": "Date debut",

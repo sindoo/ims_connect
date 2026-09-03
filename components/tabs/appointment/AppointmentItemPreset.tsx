@@ -34,8 +34,8 @@ export default function AppointmentItemPreset({data}: any) {
         }}>
         <View style={{...styles.appointmentItem, marginRight: 10}}>
           <View style={styles.appointmentDetails}>
-            <View style={{flexDirection: 'row', marginBottom: 10} as StyleSheet}>
-              <View
+            <View style={{marginBottom: 10} as StyleSheet}>
+              {/*<View
                 style={{
                   ...((data.meetingStatus === 'CONFIRM' &&
                     styles.validateStatus) ||
@@ -45,9 +45,10 @@ export default function AppointmentItemPreset({data}: any) {
                     (data.meetingStatus === 'CANCEL' && styles.cancelStatus)),
                   marginRight: 10,
                 }}
-              />
+              />*/}
               <Text style={styles.titleDetail}>{data.objet}</Text>
             </View>
+
 
             <Text style={globalStyles.paragraph}>
               {t('presetAppointment.date_start')} :{' '}

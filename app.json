@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.appstore.IMS",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -25,7 +27,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "ims.connect.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,16 +41,44 @@
       "expo-router",
       "expo-status-bar",
       "expo-localization",
-      "@react-native-firebase/app",
-      "@react-native-firebase/messaging",
+      [
+        "@react-native-firebase/app",
+        {
+          "expo": {
+            "android": {
+              "googleServicesFile": "./google-services.json"
+            },
+            "ios": {
+              "googleServicesFile": "./GoogleService-Info.plist"
+            }
+          }
+        }
+      ],
+      [
+        "@react-native-firebase/messaging",
+        {
+          "expo": {
+            "android": {
+              "googleServicesFile": "./google-services.json"
+            },
+            "ios": {
+              "googleServicesFile": "./GoogleService-Info.plist"
+            }
+          }
+        }
+      ],
       [
         "expo-notifications",
         {
           "icon": "./assets/android-icon-background.png",
           "color": "#ffffff"
         }
-      ],
-      "./lib/withFcmNotificationMetaFix.js"
-    ]
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "votre-project-id-eas"
+      }
+    }
   }
 }
