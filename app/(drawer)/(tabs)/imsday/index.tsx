@@ -288,9 +288,11 @@ const ImsDayHome = (props) => {
                     style={styles.backgroundImage}>
                     <View style={styles.myImsDayContainer}>
                         {imsDayList.length === 0 && (
-                            <Text style={{textAlign: 'center', color: COLORS.gray} as StyleSheet}>
-                                {t('myDayAtIms.empty_ims_day')}
-                            </Text>
+                            <>
+                                <Text style={{textAlign: 'center', color: COLORS.gray} as StyleSheet}>
+                                    {t('myDayAtIms.empty_ims_day')}
+                                </Text>
+                            </>
                         )}
 
                         {imsDayInfo !== null && (

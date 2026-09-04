@@ -50,8 +50,8 @@ const Login = () => {
             dispatch(getUserChildren(response));
             setAuthToken(response.token);
             dispatch(setUserSliceToken(response.token));
-
-        } catch (error: any) {
+        }
+        catch (error: any) {
             if (error?.code === 'ERR_NETWORK') {
                 setErrorMessage(t('login.network_error'));
             } else {

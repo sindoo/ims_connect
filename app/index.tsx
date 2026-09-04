@@ -14,7 +14,6 @@ import {Image} from "expo-image";
 const ProfileChoice = () => {
     const [buttonStatus, setButtonStatus] = useState(false);
     const dispatch = useDispatch();
-    //const {t, i18n} = useTranslation();
     const {children} = useSelector((state: any) => state.child);
     const [loading, setLoading] = useState(true);
     const router = useRouter();

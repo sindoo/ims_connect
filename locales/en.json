@@ -25,6 +25,7 @@
         "menu_of_day": "Menu of the day",
         "week": "Week",
         "my_day_ims": "My day at IMS",
+        "my_day_ims_title": "My day at IMS of",
         "nap_time": "Nap time",
         "start_nap_time": "Start",
         "end_nap_time": "End",
@@ -42,7 +43,7 @@
     },
     "myDayAtIms": {
         "title": "My day at IMS",
-        "menu_of_day": "Menu of the day",
+        "menu_of_day": "Menu of this day",
         "today": "Today",
         "how_i_ate": "How I ate ?",
         "observation": "Observation",

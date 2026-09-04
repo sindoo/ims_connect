@@ -25,6 +25,7 @@
         "menu_of_day": "Menu du jour",
         "week": "Semaine",
         "my_day_ims": "Ma journée à IMS",
+        "my_day_ims_title": "Ma journée à IMS du",
         "nap_time": "Heure de la sieste ",
         "start_nap_time": "Début",
         "end_nap_time": "Fin",
@@ -42,7 +43,7 @@
     },
     "myDayAtIms": {
         "title": "Ma Journée à IMS",
-        "menu_of_day": "Menu du jour",
+        "menu_of_day": "Menu de ce jour",
         "today": "Aujourd'hui",
         "how_i_ate": "Comment j'ai Mangé ?",
         "observation": "Observation",

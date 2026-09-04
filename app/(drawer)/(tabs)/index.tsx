@@ -1,536 +1,499 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, AppState} from "react-native";
+// home/index.tsx - Version corrigée
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, AppState, RefreshControl } from "react-native";
 import ViewThemed from "../../../components/ui/ViewThemed";
-import {globalStyles} from "../../../style/Global";
-import {CANTEEN_OBSERVATION_EN, CANTEEN_OBSERVATION_FR, COLORS, IMAGES, TIME_ZONE_ABIDJAN} from "../../../constants";
-import {ImageBackground, Image} from "expo-image";
-import {useTranslation} from "react-i18next";
-import {useDispatch, useSelector} from "react-redux";
+import { globalStyles } from "../../../style/Global";
+import { CANTEEN_OBSERVATION_EN, CANTEEN_OBSERVATION_FR, COLORS, IMAGES, TIME_ZONE_ABIDJAN } from "../../../constants";
+import { ImageBackground, Image } from "expo-image";
+import { useTranslation } from "react-i18next";
+import { useDispatch, useSelector } from "react-redux";
 import FlatButton from "../../../components/ui/FlatButton";
-import {format, getHours, getMinutes, getTime, set, toDate} from 'date-fns';
-import {enUS, fr} from 'date-fns/locale';
+import { format, getHours, getMinutes, getTime, set, toDate } from 'date-fns';
+import { enUS, fr } from 'date-fns/locale';
 import ImsDayService from "../../../services/ImsDayService";
-import {checkAppState, checkTokenExpired} from "../../../services/GeneralService";
-import {toZonedTime} from "date-fns-tz";
-import {getRequest} from "../../../api/ApiManager";
+import { checkAppState, checkTokenExpired } from "../../../services/GeneralService";
+import { toZonedTime } from "date-fns-tz";
 import EmployeeService from "../../../services/EmployeeService";
-import {getEmployeesTeacher} from "../../../redux/features/employee/employeeSlice";
+import { getEmployeesTeacher } from "../../../redux/features/employee/employeeSlice";
 import Loading from "../../../components/ui/Loading";
 import AppointmentService from "../../../services/AppointmentService";
-import {setAllAppointmentList} from "../../../redux/features/appointment/appointmentSlice";
-import {changeChild} from "../../../redux/features/child/childSlice";
+import { setAllAppointmentList } from "../../../redux/features/appointment/appointmentSlice";
+import { changeChild } from "../../../redux/features/child/childSlice";
 import MenuYearService from "../../../services/MenuYearService";
 import WeekService from "../../../services/WeekService";
 import Card from "../../../components/ui/Card";
-import {BASEURL_IMG} from "../../../api/appUrl";
+import { BASEURL_IMG } from "../../../api/appUrl";
 import WeekCalendar from "../../../components/ui/WeekCalendar";
 import HomeAppointment from "../../../components/tabs/home/HomeAppointment";
-import {useRouter} from "expo-router";
+import { useRouter } from "expo-router";
 
-const home = () => {
-    const {selectedChild, children} = useSelector((state: any) => state.child);
-    const selectedChildClass = selectedChild?.eleves.length >0 ? selectedChild?.eleves[0]?.classe : null;
-    const {employeesClassList, teacherList} = useSelector((state: any) => state.employee);
-    //const {activeAppointmentList, allAppointmentList} = useSelector((state: any) => state.appointment);
-    const {openAlert, dataNotification} = useSelector((state: any) => state.alertMessage);
-    const {user, userToken} = useSelector((state:any) => state.user);
-    const dispatch = useDispatch();
-    const router = useRouter();
-
-    const [date, setDate] = useState(new Date());
-    const {t, i18n} = useTranslation();
-    const [upcomingAppointHome, setUpcomingAppointHome] = useState([]);
-    const [menuPLatCanteen, setMenuPLatCanteen] = useState([]);
-    const [dataMenuList, setDataMenuList] = useState<any>([]);
-    const [weekData, setWeekData] = useState<any>([]);
-    const [week, setWeek] = useState<any | ''>('');
-    const [workDaysList, setWorkDaysList] = useState<any>([]);
-    const [workDaysNameList, setWorkDaysNameList] = useState<any>([]);
-    const [dataMenuJourList, setDataMenuJourList] = useState<any>([]);
-    const [dayMenuDetails, setDayMenuDetails] = useState<any>([]);
+// Hook personnalisé pour la logique métier
+const useHomeData = (selectedChild, children, userToken, dispatch) => {
+    const { i18n } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [menuYearLoading, setMenuYearLoading] = useState(false);
-    const [imsDayInfo, setImsDayInfo] = useState<any>(null);
+    const [imsDayInfo, setImsDayInfo] = useState(null);
+    const [upcomingAppointHome, setUpcomingAppointHome] = useState([]);
+    const [dayMenuDetails, setDayMenuDetails] = useState([]);
+    const [date, setDate] = useState(new Date());
+    const [week, setWeek] = useState('');
+    const [workDaysNameList, setWorkDaysNameList] = useState([]);
+    const [dataMenuJourList, setDataMenuJourList] = useState([]);
+    const [menuPLatCanteen, setMenuPLatCanteen] = useState([]);
+    const [dataMenuList, setDataMenuList] = useState([]);
+    const [weekData, setWeekData] = useState([]);
+    const [workDaysList, setWorkDaysList] = useState([]);
     const [statusMenuApp, setStatusMenuApp] = useState(false);
     const [count, setCount] = useState(0);
     const appState = useRef(AppState.currentState);
 
-    const handleChangeChild = (childSelectedId: any) => {
-        if(children.length > 0) {
-            const findChild = children.filter(
-                (child: any) => child?.person?.id === childSelectedId,
-            );
+    const fetchMenuData = useCallback(async () => {
+        setMenuYearLoading(true);
+        try {
+            const [dishRequestList, menuCanteenRequest, canteenWeek, menuJourListRequest] = await Promise.all([
+                MenuYearService.getPlatCanteen(),
+                MenuYearService.getMenuCanteen(),
+                WeekService.getAllWeekData(),
+                MenuYearService.getMenuByDayList()
+            ]);
 
-            if (findChild.length > 0) {
-                dispatch(changeChild(findChild[0]));
-            }
-        }
-    };
-
-    const handleMenuDateChange = (dateSelect: any) => {
-        setDate(dateSelect);
-        const theDay = format(dateSelect, 'EEEE', {locale: fr});
-        const today = theDay.toUpperCase();
-        let selectedDay = workDaysList.find(
-            (workday: any) => workday.jour.toUpperCase() === today,
-        );
-
-        if (selectedDay === undefined) {
-            selectedDay = workDaysList[0];
-        }
-
-        const dayListMenuTab = MenuYearService.getMenuDayList(dataMenuJourList,
-            selectedDay,
-            week,
-            dataMenuList,
-            menuPLatCanteen,
-        );
-        setDayMenuDetails(dayListMenuTab);
-    };
-
-    const getMenuCanteenDetails = async () => {
-        // GET PLAT CANTEEN STATER DISH - DISH - DESSERT
-        const dishRequestList: any = await MenuYearService.getPlatCanteen();
-        setMenuPLatCanteen(dishRequestList);
-
-        // GET MENU CANTEEN
-        const menuCanteenRequest: any = await MenuYearService.getMenuCanteen();
-        setDataMenuList(menuCanteenRequest);
-
-        // GET WEEK LIST
-        let canteenWeek: any = await WeekService.getAllWeekData();
-        canteenWeek = canteenWeek.sort(function (a: any, b: any) {
-            return a.dateDebut - b.dateDebut;
-        });
-        const dataList = WeekService.formatWeekData(canteenWeek, i18n);
-        setWeekData(dataList);
-
-        // GET MENU DAY LIST
-        const todayDate = new Date();
-        const menuJourListRequest: any = await MenuYearService.getMenuByDayList();
-        const todayDateFormat = set(todayDate, {
-            hours: 0,
-            minutes: 0,
-            seconds: 0,
-            milliseconds: 0,
-        });
-        const todayTimestamp = getTime(todayDateFormat);
-        const theWeek: any = canteenWeek.filter((week: any) => {
-            if (todayTimestamp >= week.dateDebut && week.dateFin >= todayTimestamp) {
-                return week;
-            }
-        });
-        let weekSelected = dataList.length > 0 ? dataList[dataList.length - 1] : '';
-        if (theWeek.length > 0 && dataList.length > 0) {
-            weekSelected = dataList.find((week: any) => week.id === theWeek[0].id);
-        }
-        setWeek(weekSelected);
-
-        // GET WORK DAYS LIST
-        const workdaysList = await WeekService.getWorkDays();
-        setWorkDaysList(workdaysList);
-        if(workdaysList.length > 0) {
-            const workDaysNames = workdaysList.map((workDay: any) => {
-                return workDay.jour.toLowerCase();
-            });
-            setWorkDaysNameList(workDaysNames);
-
-            const theDay = format(todayDate, 'EEEE', {locale: fr});
-            const today = theDay.toUpperCase();
-            let selectedDay = workdaysList.find(
-                (workday: any) => workday.jour.toUpperCase() === today,
-            );
-
-            if (selectedDay === undefined) {
-                selectedDay = workdaysList[0];
-            }
-
-            const dayListMenuTab = MenuYearService.getMenuDayList(menuJourListRequest,
-                selectedDay,
-                weekSelected,
-                menuCanteenRequest,
-                dishRequestList,
-            );
-
-            setDayMenuDetails(dayListMenuTab);
+            setMenuPLatCanteen(dishRequestList);
+            setDataMenuList(menuCanteenRequest);
             setDataMenuJourList(menuJourListRequest);
 
-            const statusAppMenu = await MenuYearService.getStatusMenuYear();
-            setStatusMenuApp(statusAppMenu?.statut);
+            // Traitement des semaines
+            const sortedWeeks = [...canteenWeek].sort((a, b) => a.dateDebut - b.dateDebut);
+            const formattedWeeks = WeekService.formatWeekData(sortedWeeks, i18n);
+            setWeekData(formattedWeeks);
+
+            // Semaine courante
+            const todayDate = new Date();
+            const todayTimestamp = getTime(set(todayDate, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 }));
+            const currentWeek = sortedWeeks.find(w => todayTimestamp >= w.dateDebut && w.dateFin >= todayTimestamp);
+            const selectedWeek = formattedWeeks.find(w => w.id === currentWeek?.id) || formattedWeeks[formattedWeeks.length - 1];
+            setWeek(selectedWeek);
+
+            // Jours travaillés
+            const workdays = await WeekService.getWorkDays();
+            setWorkDaysList(workdays);
+            if (workdays.length > 0) {
+                const workDayNames = workdays.map(w => w.jour.toLowerCase());
+                setWorkDaysNameList(workDayNames);
+
+                const dayName = format(todayDate, 'EEEE', { locale: fr }).toUpperCase();
+                const selectedDay = workdays.find(w => w.jour.toUpperCase() === dayName) || workdays[0];
+
+                const dayMenu = MenuYearService.getMenuDayList(
+                    menuJourListRequest,
+                    selectedDay,
+                    selectedWeek,
+                    menuCanteenRequest,
+                    dishRequestList
+                );
+                setDayMenuDetails(dayMenu);
+            }
+
+            const status = await MenuYearService.getStatusMenuYear();
+            setStatusMenuApp(status?.statut);
+        } catch (error) {
+            console.error('Erreur menu:', error);
+        } finally {
+            setMenuYearLoading(false);
         }
+    }, [i18n]);
 
-        setMenuYearLoading(false);
-    }
+    const fetchData = useCallback(async () => {
+        if (!selectedChild) return;
+        setLoading(true);
 
+        try {
+            // Récupération parallèle des données
+            const [employeesRes, allRdvListSort, allImsDayList] = await Promise.all([
+                EmployeeService.getChildClassEmployees(selectedChild),
+                AppointmentService.getAllAppointment(selectedChild.person.id),
+                ImsDayService.getChildImsDay(selectedChild?.person?.id)
+            ]);
+
+            // Employees
+            if (employeesRes) {
+                dispatch(getEmployeesTeacher({
+                    employees: employeesRes.employees || [],
+                    teacher: employeesRes.teacher || null,
+                    teacherList: employeesRes.teacherList || [],
+                    employeesClassList: employeesRes.employeesClassList || [],
+                }));
+            }
+
+            // Rendez-vous
+            if (allRdvListSort?.length > 0) {
+                dispatch(setAllAppointmentList(allRdvListSort));
+                const activeAppointments = AppointmentService.getChildActiveAppointmentList(allRdvListSort);
+                setUpcomingAppointHome(activeAppointments?.slice(0, 3) || []);
+            } else {
+                setUpcomingAppointHome([]);
+            }
+
+            // IMS Day
+            if (allImsDayList?.length > 0) {
+                const latestIms = allImsDayList.reverse()[0];
+                setImsDayInfo({
+                    ...latestIms,
+                    timeDebutSieste: latestIms.timeDebutSieste ? toZonedTime(latestIms.timeDebutSieste, TIME_ZONE_ABIDJAN) : null,
+                    timeFinSieste: latestIms.timeFinSieste ? toZonedTime(latestIms.timeFinSieste, TIME_ZONE_ABIDJAN) : null,
+                });
+            } else {
+                setImsDayInfo(null);
+            }
+
+            // Menu
+            await fetchMenuData();
+
+            // Vérification token
+            if (userToken) {
+                checkTokenExpired(userToken, dispatch);
+            }
+        }
+        catch (error) {
+            console.error('Erreur fetchData:', error);
+            if (userToken) {
+                checkTokenExpired(userToken, dispatch);
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedChild, userToken, dispatch, fetchMenuData]);
+
+    const handleChangeChild = useCallback((childSelectedId) => {
+        if (children?.length > 0 && childSelectedId) {
+            const findChild = children.find((child) => child?.person?.id === childSelectedId);
+            if (findChild) {
+                dispatch(changeChild(findChild));
+            }
+        }
+    }, [children, dispatch]);
+
+    const handleMenuDateChange = useCallback((dateSelect) => {
+        setDate(dateSelect);
+        const dayName = format(dateSelect, 'EEEE', { locale: fr }).toUpperCase();
+        const selectedDay = workDaysList.find(w => w.jour.toUpperCase() === dayName) || workDaysList[0];
+
+        if (selectedDay && week && dataMenuJourList.length > 0) {
+            const dayMenu = MenuYearService.getMenuDayList(
+                dataMenuJourList,
+                selectedDay,
+                week,
+                dataMenuList,
+                menuPLatCanteen
+            );
+            setDayMenuDetails(dayMenu || []);
+        }
+    }, [workDaysList, dataMenuJourList, week, dataMenuList, menuPLatCanteen]);
+
+    // Effet principal
     useEffect(() => {
-        const fetchData = async () => {
-           try {
-               setLoading(true);
-               setMenuYearLoading(true);
-               if (selectedChild !== null) {
-                   const upcomingAppointment: any = [];
-                   setMenuPLatCanteen([]);
-                   setDataMenuList([]);
-                   setWeekData([]);
-                   setWorkDaysList([]);
-                   setWorkDaysNameList([]);
-                   setWeek('');
-                   setDataMenuJourList([]);
-                   setImsDayInfo(null);
-                   setUpcomingAppointHome([]);
+        fetchData();
 
-                   //GET EMPLOYEES AND TEACHERS OF CHILD CLASS
-                   const employeesRes = await EmployeeService.getChildClassEmployees(selectedChild);
-                   dispatch(getEmployeesTeacher({
-                           employees: employeesRes.employees,
-                           teacher: employeesRes.teacher,
-                           teacherList: employeesRes.teacherList,
-                           employeesClassList: employeesRes.employeesClassList,
-                       }),
-                   );
-
-                   //GET APPOINTMENT LIST
-                   const allRdvListSort = await AppointmentService.getAllAppointment(selectedChild.person.id);
-                   setLoading(false);
-
-                   if(allRdvListSort !== undefined) {
-                       dispatch(setAllAppointmentList(allRdvListSort));
-                       const activeAppointmentList = AppointmentService.getChildActiveAppointmentList(allRdvListSort);
-                       let count = 0;
-                       if (activeAppointmentList.length > 0) {
-                           for (let i = 0; i < activeAppointmentList.length; i++) {
-                               if (count < 3) {
-                                   upcomingAppointment.push(activeAppointmentList[i]);
-                                   count++;
-                               } else {
-                                   break;
-                               }
-                           }
-                           setUpcomingAppointHome(upcomingAppointment);
-                       }
-                   }
-
-
-                   const allImsDayList = await ImsDayService.getChildImsDay(selectedChild?.person?.id);
-                   allImsDayList.reverse();
-                   if (allImsDayList.length > 0) {
-                       let imsDayInformation = {
-                           ...allImsDayList[0],
-                           timeDebutSieste: toZonedTime(allImsDayList[0]?.timeDebutSieste, TIME_ZONE_ABIDJAN),
-                           timeFinSieste:  toZonedTime(allImsDayList[0]?.timeFinSieste, TIME_ZONE_ABIDJAN),
-                       };
-                       setImsDayInfo(imsDayInformation);
-                   }
-
-                   //GET MENU CANTEEN DETAILS
-                   await getMenuCanteenDetails();
-
-                   // HANDLE NOTIFICATION
-                   //await handleFirebaseNotification();
-                   //await handleNotifyNotification();
-               }
-               setLoading(false);
-
-               if(user !== null) {
-                   // GET ALL NOTIFICATIONS AND DELETE OLD ONE
-                   //await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
-               }
-
-               checkTokenExpired(userToken, dispatch);
-           }
-           catch (error) {
-               console.log(JSON.stringify(error));
-               setMenuYearLoading(false);
-               setLoading(false);
-               checkTokenExpired(userToken, dispatch);
-           }
-        };
-
-
-        fetchData().catch(error => {
-            console.log(JSON.stringify(error));
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            setCount(c => c + 1);
+            appState.current = nextAppState;
         });
 
-        const subscription = checkAppState(appState, setCount);
-        return () => {
-            subscription.remove();
-        };
-    }, [selectedChild]);
+        return () => subscription.remove();
+    }, [fetchData]);
+
+    return {
+        loading,
+        menuYearLoading,
+        imsDayInfo,
+        upcomingAppointHome,
+        dayMenuDetails,
+        date,
+        workDaysNameList,
+        statusMenuApp,
+        handleMenuDateChange,
+        handleChangeChild,
+        refetch: fetchData
+    };
+};
+
+// Composant IMS Day optimisé
+const ImsDaySection = React.memo(({ imsDayInfo, i18n, router }) => {
+    if (!imsDayInfo) return null;
+
+    const formatTime = (time) => {
+        if (!time) return '--:--';
+        return format(time, i18n.language === 'en' ? 'hh:mm a' : 'H:mm');
+    };
+
+    return (
+        <View style={styles.imsDayContainer}>
+            <View style={styles.titleContainer}>
+                <Text style={{ color: COLORS.gray, fontWeight: '600' }}>
+                    {i18n.t('home.my_day_ims_title')}
+                </Text>
+                <Text style={styles.todayImsDay}>
+                    {format(
+                        imsDayInfo.theDate,
+                        i18n.language === 'en' ? 'EEEE, MMMM dd yyyy' : 'EEEE, dd MMMM yyyy',
+                        { locale: i18n.language === 'en' ? enUS : fr }
+                    )}
+                </Text>
+            </View>
+
+            <View style={styles.imsDayItem}>
+                <View style={styles.imsDayItemText}>
+                    <Text style={globalStyles.titleH2}>{i18n.t('home.nap_time')}</Text>
+                    {imsDayInfo.sieste ? (
+                        <>
+                            <Text style={globalStyles.paragraph}>
+                                {i18n.t('home.start_nap_time')} : {formatTime(imsDayInfo.timeDebutSieste)}
+                            </Text>
+                            <Text style={globalStyles.paragraph}>
+                                {i18n.t('home.end_nap_time')} : {formatTime(imsDayInfo.timeFinSieste)}
+                            </Text>
+                        </>
+                    ) : (
+                        <Text style={globalStyles.paragraph}>{i18n.t('myDayAtIms.no_nap_time')}</Text>
+                    )}
+                </View>
+                <View style={styles.imsDayItemImage}>
+                    <Image source={IMAGES.sleepNatimeImage} contentFit="cover" style={styles.dayItemImageCover} />
+                </View>
+            </View>
+
+            {imsDayInfo.observationCantine && (
+                <View style={styles.imsDayItem}>
+                    <View style={styles.imsDayItemText}>
+                        <Text style={globalStyles.titleH2}>{i18n.t('home.how_i_ate')}</Text>
+                        <Text style={globalStyles.paragraph}>
+                            {i18n.language === 'en'
+                                ? CANTEEN_OBSERVATION_EN[imsDayInfo.observationCantine] || imsDayInfo.observationCantine
+                                : CANTEEN_OBSERVATION_FR[imsDayInfo.observationCantine] || imsDayInfo.observationCantine}
+                        </Text>
+                    </View>
+                    <View style={styles.imsDayItemImage}>
+                        <Image source={IMAGES.howIateImage} contentFit="cover" style={styles.dayItemImageCover} />
+                    </View>
+                </View>
+            )}
+
+            <View style={{ marginTop: 10, marginBottom: 10 }}>
+                <FlatButton
+                    title={i18n.t('home.more_details')}
+                    fontWeight="400"
+                    fontSize={16}
+                    backgroundColor={COLORS.secondary}
+                    paddingVertical={12}
+                    borderRadius={20}
+                    onPress={() => router.push('imsday')}
+                    disabled={false}
+                />
+            </View>
+        </View>
+    );
+});
+
+// Composant Menu optimisé
+const MenuSection = React.memo(({
+                                    dayMenuDetails,
+                                    menuYearLoading,
+                                    statusMenuApp,
+                                    date,
+                                    workDaysNameList,
+                                    onDateChange,
+                                    i18n
+                                }) => {
+    return (
+        <>
+            <WeekCalendar
+                date={date}
+                onChange={onDateChange}
+                workDayNameList={workDaysNameList}
+            />
+            {(dayMenuDetails?.length === 0 || statusMenuApp) && (
+                <View style={{ marginTop: 15 }}>
+                    {menuYearLoading ? (
+                        <Loading size="small" />
+                    ) : (
+                        <Text style={{ textAlign: 'center', color: COLORS.black }}>
+                            {i18n.t('home.empty_menu_year')}
+                        </Text>
+                    )}
+                </View>
+            )}
+            {dayMenuDetails?.length > 0 && !statusMenuApp && (
+                dayMenuDetails.map((detailsMenu, index) => (
+                    <View style={globalStyles.detailsContainer} key={detailsMenu?.itemMenuCanteenJourId || index}>
+                        <Card borderRaduis={10}>
+                            <View style={globalStyles.imageMenu}>
+                                <Image
+                                    source={
+                                        detailsMenu?.photo && detailsMenu.photo !== ''
+                                            ? { uri: `${BASEURL_IMG}/${detailsMenu.photo}` }
+                                            : IMAGES.photoMenu
+                                    }
+                                    contentFit="cover"
+                                    style={globalStyles.imageMenuCover}
+                                />
+                            </View>
+                            <View style={globalStyles.infoMenuContainer}>
+                                <Text style={globalStyles.titleH2}>{detailsMenu.nom || 'Menu'}</Text>
+                                {['entree', 'plat', 'dessert'].map((type) => (
+                                    <View key={type} style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                        <Text style={globalStyles.entreeDish}>
+                                            {i18n.t(`home.${type === 'entree' ? 'starter_dish' : type}`)} :{' '}
+                                        </Text>
+                                        <Text style={{ ...globalStyles.entreeDish, fontWeight: '700' }}>
+                                            {detailsMenu[type] || '-'}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </Card>
+                    </View>
+                ))
+            )}
+        </>
+    );
+});
+
+// Composant Rendez-vous optimisé
+const AppointmentSection = React.memo(({ appointments, employeesClassList, selectedChild, selectedChildClass }) => {
+    const { i18n } = useTranslation();
+
+    if (!appointments || appointments.length === 0) {
+        return (
+            <View style={{ paddingVertical: 20 }}>
+                <Text style={{ textAlign: 'center' }}>{i18n.t('appointment.empty_appointment')}</Text>
+            </View>
+        );
+    }
+
+    return (
+        <ScrollView>
+            <View style={styles.appointmentContainer}>
+                {appointments.map((appointment) => {
+                    let dayDate = toZonedTime(toDate(appointment.dateDebut), TIME_ZONE_ABIDJAN);
+                    let dayDateFin = toZonedTime(toDate(appointment.dateFin), TIME_ZONE_ABIDJAN);
+                    let startTime = format(dayDate, 'HH:mm');
+                    let endTime = format(dayDateFin, 'HH:mm');
+                    let employeesFind = employeesClassList?.find(
+                        (emp) => emp.id === appointment.creneauRdvs?.[0]?.creneauRdvEmployees?.[0]?.employeeId
+                    );
+
+                    if (appointment.meetingType === 'PRESET' && appointment.creneauRdvs?.length > 0) {
+                        for (const creneau of appointment.creneauRdvs) {
+                            const enfantParent = creneau.creneauRdvEnfantParents?.[0];
+                            if (enfantParent?.enfantId === selectedChild?.person?.id) {
+                                dayDate = toZonedTime(toDate(enfantParent.dateDebut), TIME_ZONE_ABIDJAN);
+                                dayDateFin = toZonedTime(toDate(enfantParent.dateFin), TIME_ZONE_ABIDJAN);
+                                startTime = format(dayDate, 'HH:mm');
+                                endTime = format(dayDateFin, 'HH:mm');
+                                employeesFind = undefined;
+                                break;
+                            }
+                        }
+                    }
+
+                    return (
+                        <View style={styles.appointItemContainer} key={appointment.id}>
+                            <HomeAppointment
+                                appointment={appointment}
+                                employeesFind={employeesFind}
+                                dayDate={dayDate}
+                                startTime={startTime}
+                                endTime={endTime}
+                                selectedChildClass={selectedChildClass}
+                            />
+                        </View>
+                    );
+                })}
+            </View>
+        </ScrollView>
+    );
+});
+
+// Composant principal
+const HomeScreen = () => {
+    const { i18n } = useTranslation();
+    const dispatch = useDispatch();
+    const router = useRouter();
+
+    const { selectedChild, children } = useSelector((state: any) => state.child);
+    const { employeesClassList } = useSelector((state: any) => state.employee);
+    const { userToken } = useSelector((state: any) => state.user);
+
+    const selectedChildClass = useMemo(() => selectedChild?.eleves?.[0]?.classe ?? null, [selectedChild]);
+
+    const {
+        loading,
+        menuYearLoading,
+        imsDayInfo,
+        upcomingAppointHome,
+        dayMenuDetails,
+        date,
+        workDaysNameList,
+        statusMenuApp,
+        handleMenuDateChange,
+        refetch
+    } = useHomeData(selectedChild, children, userToken, dispatch);
 
     if (loading) {
         return <Loading />;
     }
 
     return (
-        <ViewThemed style={{...globalStyles.container}}>
-            <ScrollView style={styles.container}>
+        <ViewThemed style={globalStyles.container}>
+            <ScrollView
+                style={styles.container}
+                refreshControl={
+                    <RefreshControl refreshing={loading} onRefresh={refetch} />
+                }
+            >
                 <ImageBackground
                     source={IMAGES.backgroundImageApp}
                     contentFit="cover"
-                    style={styles.backgroundImage}>
-
-                    {/** BOX IMS DAY */}
+                    style={styles.backgroundImage}
+                >
+                    {/* IMS DAY */}
                     <View style={styles.imsDay}>
-                        <Text style={globalStyles.title}>{t('home.my_day_ims')}</Text>
-                        <Text>{}</Text>
-                        {imsDayInfo !== null && (
-                            <View style={styles.imsDayContainer}>
-                                <Text style={styles.todayImsDay}>
-                                    {format(
-                                        imsDayInfo?.theDate,
-                                        i18n.language === 'en'
-                                            ? 'EEEE, MMMM dd yyyy'
-                                            : 'EEEE, dd MMMM yyyy',
-                                        {locale: i18n.language === 'en' ? enUS : fr},
-                                    )}
-                                </Text>
-
-                                <View style={styles.imsDayItem}>
-                                    <View style={styles.imsDayItemText}>
-                                        <Text style={globalStyles.titleH2}>{t('home.nap_time')}</Text>
-                                        {imsDayInfo?.sieste ? (
-                                            <>
-                                                <Text style={globalStyles.paragraph}>
-                                                    {t('home.start_nap_time')} :{' '}
-                                                    {format(
-                                                        imsDayInfo?.timeDebutSieste !== null
-                                                            ? imsDayInfo?.timeDebutSieste
-                                                            : 0,
-                                                        i18n.language === 'en' ? 'hh:mm a' : 'H:mm',
-                                                        {locale: i18n.language === 'en' ? enUS : fr},
-                                                    )}
-                                                </Text>
-                                                <Text style={globalStyles.paragraph}>
-                                                    {t('home.end_nap_time')} :{' '}
-                                                    {format(
-                                                        imsDayInfo?.timeFinSieste !== null
-                                                            ? imsDayInfo?.timeFinSieste
-                                                            : 0,
-                                                        i18n.language === 'en' ? 'hh:mm a' : 'H:mm',
-                                                        {locale: i18n.language === 'en' ? enUS : fr},
-                                                    )}
-                                                </Text>
-                                            </>
-                                        ) : (
-                                            <Text style={globalStyles.paragraph}>
-                                                {t('myDayAtIms.no_nap_time')}
-                                            </Text>
-                                        )}
-                                    </View>
-
-                                    <View style={styles.imsDayItemImage}>
-                                        <Image
-                                            source={IMAGES.sleepNatimeImage}
-                                            contentFit="cover"
-                                            style={styles.dayItemImageCover}
-                                        />
-                                    </View>
-                                </View>
-
-                                {imsDayInfo?.observationCantine !== '' &&
-                                    imsDayInfo?.observationCantine !== null && (
-                                        <View style={styles.imsDayItem}>
-                                            <View style={styles.imsDayItemText}>
-                                                <Text style={globalStyles.titleH2}>
-                                                    {t('home.how_i_ate')}
-                                                </Text>
-                                                <Text style={globalStyles.paragraph}>
-                                                    {i18n.language === 'en'
-                                                        ? CANTEEN_OBSERVATION_EN[
-                                                            imsDayInfo?.observationCantine
-                                                            ]
-                                                        : CANTEEN_OBSERVATION_FR[
-                                                            imsDayInfo?.observationCantine
-                                                            ]}
-                                                </Text>
-                                            </View>
-
-                                            <View style={styles.imsDayItemImage}>
-                                                <Image
-                                                    source={IMAGES.howIateImage}
-                                                    contentFit="cover"
-                                                    style={styles.dayItemImageCover}
-                                                />
-                                            </View>
-                                        </View>
-                                    )}
-
-                                <View style={{marginTop: 10, marginBottom: 10}}>
-                                    <FlatButton
-                                        title={t('home.more_details')}
-                                        fontWeight="400"
-                                        fontSize={16}
-                                        backgroundColor={COLORS.secondary}
-                                        paddingVertical={12}
-                                        borderRadius={20}
-                                        onPress={() => router.push('imsday')}
-                                        disabled={false}
-                                    />
-                                </View>
-                            </View>
-                        )}
+                        <Text style={globalStyles.title}>{i18n.t('home.my_day_ims')}</Text>
+                        <ImsDaySection imsDayInfo={imsDayInfo} i18n={i18n} router={router} />
                     </View>
 
+                    {/* MENU */}
                     <View style={globalStyles.dayMenuContainer}>
-                        <Text style={globalStyles.title}>{t('home.menu_of_day')}</Text>
-                        <WeekCalendar
+                        <Text style={globalStyles.title}>{i18n.t('home.menu_of_day')}</Text>
+                        <MenuSection
+                            dayMenuDetails={dayMenuDetails}
+                            menuYearLoading={menuYearLoading}
+                            statusMenuApp={statusMenuApp}
                             date={date}
-                            onChange={(newDate: any) => handleMenuDateChange(newDate)}
-                            workDayNameList={workDaysNameList}
+                            workDaysNameList={workDaysNameList}
+                            onDateChange={handleMenuDateChange}
+                            i18n={i18n}
                         />
-
-                        <>
-                            {(dayMenuDetails.length === 0 || statusMenuApp) && (
-                                <View style={{marginTop: 15}}>
-                                    {menuYearLoading ? (
-                                        <Loading size="small" />
-                                    ) : (
-                                        <Text style={{textAlign: 'center', color: COLORS.black}  as StyleSheet}>
-                                            {t('home.empty_menu_year')}
-                                        </Text>
-                                    )}
-                                </View>
-                            )}
-                            {dayMenuDetails.length > 0 &&
-                                !statusMenuApp &&
-                                dayMenuDetails.map((detailsMenu: any, index: any) => {
-                                    return (
-                                        <View style={globalStyles.detailsContainer} key={index}>
-                                            <Card borderRaduis={10}>
-                                                <View style={globalStyles.imageMenu}>
-                                                    <Image
-                                                        source={
-                                                            detailsMenu?.photo !== '' &&
-                                                            detailsMenu?.photo !== null
-                                                                ? {uri: `${BASEURL_IMG}/${detailsMenu.photo}`}
-                                                                : IMAGES.photoMenu
-                                                        }
-                                                        contentFit="cover"
-                                                        style={globalStyles.imageMenuCover}
-                                                    />
-                                                </View>
-                                                <View style={globalStyles.infoMenuContainer}>
-                                                    <Text style={globalStyles.titleH2}>
-                                                        {detailsMenu.nom}
-                                                    </Text>
-                                                    <View style={{flexDirection: 'row', flexWrap: 'wrap'} as StyleSheet}>
-                                                        <Text style={globalStyles.entreeDish}>
-                                                            {t('home.starter_dish')} :{' '}
-                                                        </Text>
-                                                        <Text
-                                                            style={{
-                                                                ...globalStyles.entreeDish,
-                                                                fontWeight: '700',
-                                                            } as StyleSheet}>
-                                                            {detailsMenu.entree}
-                                                        </Text>
-                                                    </View>
-
-                                                    <View style={{flexDirection: 'row', flexWrap: 'wrap'}  as StyleSheet}>
-                                                        <Text style={globalStyles.entreeDish}>
-                                                            {t('home.dish')} :{' '}
-                                                        </Text>
-                                                        <Text
-                                                            style={{
-                                                                ...globalStyles.entreeDish,
-                                                                fontWeight: '700',
-                                                            }  as StyleSheet}>
-                                                            {detailsMenu.plat}
-                                                        </Text>
-                                                    </View>
-
-                                                    <View style={{flexDirection: 'row', flexWrap: 'wrap'}  as StyleSheet}>
-                                                        <Text style={globalStyles.entreeDish}>
-                                                            {t('home.dessert')} :{' '}
-                                                        </Text>
-                                                        <Text
-                                                            style={{
-                                                                ...globalStyles.entreeDish,
-                                                                fontWeight: '700',
-                                                            }  as StyleSheet}>
-                                                            {detailsMenu.dessert}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                            </Card>
-                                        </View>
-                                    );
-                                })}
-                        </>
-
                     </View>
 
+                    {/* APPOINTMENTS */}
                     <View style={styles.appointment}>
-                        <Text style={globalStyles.title}>{t('home.incomming_appoint')}</Text>
-                        {(upcomingAppointHome.length === 0 || false) && (
-                            <View>
-                                <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                                    {t('appointment.empty_appointment')}
-                                </Text>
-                            </View>
-                        )}
-                        <ScrollView>
-                            <View style={{...styles.appointmentContainer}}>
-                                {upcomingAppointHome.length > 0 &&
-                                    upcomingAppointHome.map((appointment: any) => {
-                                        let dayDate: any = toDate(appointment?.dateDebut);
-                                        let dayDateFin: any = toDate(appointment?.dateFin);
-                                        dayDate = toZonedTime(dayDate, TIME_ZONE_ABIDJAN);
-                                        dayDateFin = toZonedTime(dayDateFin, TIME_ZONE_ABIDJAN);
-
-                                        let startTime = `${String(getHours(dayDate)).padStart(2, '0')}:${String(getMinutes(dayDate)).padStart(2, '0')}`;
-                                        let endTime = `${String(getHours(dayDateFin)).padStart(2, '0')}:${String(getMinutes(dayDateFin)).padStart(2, '0')}`;
-                                        let employeesFind: any = employeesClassList.find(
-                                            (employee: any) => employee.id === appointment.creneauRdvs[0]?.creneauRdvEmployees[0]?.employeeId,);
-                                        if (appointment?.meetingType === 'PRESET') {
-                                            if (appointment?.creneauRdvs.length > 0) {
-                                                for (let i = 0; i < appointment?.creneauRdvs.length; i++) {
-                                                    if (appointment?.creneauRdvs[i]?.creneauRdvEnfantParents?.length > 0) {
-                                                        if (appointment.creneauRdvs[i]?.creneauRdvEnfantParents[0]?.enfantId === selectedChild.person.id) {
-                                                            dayDate = toDate(appointment?.creneauRdvs[i]?.creneauRdvEnfantParents[0]?.dateDebut);
-                                                            dayDateFin = toDate(appointment?.creneauRdvs[i]?.creneauRdvEnfantParents[0]?.dateFin);
-                                                            dayDate = toZonedTime(dayDate, TIME_ZONE_ABIDJAN);
-                                                            dayDateFin = toZonedTime(dayDateFin, TIME_ZONE_ABIDJAN);
-
-                                                            startTime = `${String(getHours(dayDate)).padStart(2, '0')}:${String(getMinutes(dayDate)).padStart(2, '0')}`;
-                                                            endTime = `${String(getHours(dayDateFin)).padStart(2, '0',)}:${String(getMinutes(dayDateFin)).padStart(2, '0')}`;
-                                                            //employeesFind = teacherList[0];
-                                                            employeesFind = undefined;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        return (
-                                            <View
-                                                style={styles.appointItemContainer}
-                                                key={appointment.id}>
-                                                <HomeAppointment
-                                                    key={appointment.id}
-                                                    appointment={appointment}
-                                                    employeesFind={employeesFind}
-                                                    dayDate={dayDate}
-                                                    startTime={startTime}
-                                                    endTime={endTime}
-                                                    selectedChildClass={selectedChildClass}
-                                                />
-                                            </View>
-                                        );
-                                    })}
-                            </View>
-                        </ScrollView>
+                        <Text style={globalStyles.title}>{i18n.t('home.incomming_appoint')}</Text>
+                        <AppointmentSection
+                            appointments={upcomingAppointHome}
+                            employeesClassList={employeesClassList}
+                            selectedChild={selectedChild}
+                            selectedChildClass={selectedChildClass}
+                        />
                     </View>
-
-
                 </ImageBackground>
             </ScrollView>
         </ViewThemed>
     );
 };
 
-export default home;
+export default HomeScreen;
 
+// Styles optimisés
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -539,8 +502,7 @@ const styles = StyleSheet.create({
     },
     backgroundImage: {
         flex: 1,
-        paddingLeft: 10,
-        paddingRight: 10,
+        paddingHorizontal: 10,
     },
     imsDay: {
         paddingTop: 20,
@@ -548,27 +510,22 @@ const styles = StyleSheet.create({
     imsDayContainer: {
         borderRadius: 10,
         backgroundColor: COLORS.grayVeryLight,
-        paddingTop: 15,
-        paddingBottom: 15,
-        paddingLeft: 15,
-        paddingRight: 15,
+        paddingVertical: 15,
+        paddingHorizontal: 15,
+    },
+    titleContainer: {
+        flexDirection: "row",
+        justifyContent: "center",
+        flexWrap: 'wrap',
     },
     todayImsDay: {
         textAlign: 'center',
         color: COLORS.gray,
         marginBottom: 15,
         textTransform: 'capitalize',
-    },
-    imsDayWhatIneed: {
-        flex: 1,
-        //flexDirection: 'row',
-        borderRadius: 10,
-        padding: 10,
-        backgroundColor: COLORS.white,
-        marginBottom: 15,
+        fontWeight: '600',
     },
     imsDayItem: {
-        flex: 1,
         flexDirection: 'row',
         borderRadius: 10,
         padding: 10,
@@ -577,7 +534,7 @@ const styles = StyleSheet.create({
     },
     imsDayItemText: {
         flex: 3,
-        height: 80,
+        minHeight: 80,
     },
     imsDayItemImage: {
         flex: 1,
@@ -588,53 +545,15 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 80,
     },
-    itemDayTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        letterSpacing: 1,
-        color: COLORS.gray,
-        paddingBottom: 10,
-    },
     appointment: {
-        flex: 1,
         paddingTop: 20,
+        paddingBottom: 20,
     },
     appointmentContainer: {
-        flex: 1,
-        //flexDirection: 'row',
         paddingBottom: 10,
-    },
-    appointmentItem: {
-        width: 130,
-        minHeight: 145,
-        backgroundColor: COLORS.grayVeryLight,
-        padding: 5,
     },
     appointItemContainer: {
         flex: 1,
-        //marginRight: 10,
-    },
-    appointImage: {
-        alignItems: 'center',
-        overflow: 'hidden',
-        padding: 5,
-    },
-    appointImageCover: {
-        width: 65,
-        height: 65,
-        overflow: 'hidden',
-        borderRadius: 50,
-        borderWidth: 1,
-        borderColor: COLORS.grayLight,
-    },
-    appointItemTitle: {
-        textAlign: 'center',
-        fontWeight: '600',
-        color: COLORS.gray,
-    },
-    appoint: {
-        textAlign: 'center',
-        color: COLORS.gray,
+        marginBottom: 8,
     },
 });
-

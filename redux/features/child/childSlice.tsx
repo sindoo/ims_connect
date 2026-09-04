@@ -1,5 +1,21 @@
 import {createSlice} from '@reduxjs/toolkit';
 
+// Fonction de tri réutilisable
+const sortChildren = (children: any[]) => {
+  return [...children].sort((a, b) => {
+    const nomA = a.person?.nom?.toLowerCase() || '';
+    const nomB = b.person?.nom?.toLowerCase() || '';
+
+    if (nomA !== nomB) {
+      return nomA.localeCompare(nomB);
+    }
+
+    const prenomA = a.person?.prenom?.toLowerCase() || '';
+    const prenomB = b.person?.prenom?.toLowerCase() || '';
+    return prenomA.localeCompare(prenomB);
+  });
+};
+
 const initialState = {
   children: [],
   selectedChild: null,
@@ -10,10 +26,13 @@ const childSlice = createSlice({
   initialState,
   reducers: {
     getUserChildren: (state, action) => {
-      state.children = action.payload.user.userDetails.personDetails.enfants;
-      const child: any = action.payload.user.userDetails.personDetails.enfants;
-      state.selectedChild = child?.length > 0 ? child[0] : null;
+      const enfants = action.payload.user.userDetails.personDetails.enfants || [];
+      const sortedChildren = sortChildren(enfants);
+
+      state.children = sortedChildren;
+      state.selectedChild = sortedChildren?.length > 0 ? sortedChildren[0] : null;
     },
+
     changeChild: (state, action) => {
       let childTab: any = [];
       if (state.children.length > 0) {
@@ -27,12 +46,14 @@ const childSlice = createSlice({
         }
       }
 
-      state.children = childTab;
+      state.children = sortChildren(childTab);
       state.selectedChild = action.payload;
     },
+
     setUserChildren: (state, action) => {
-      state.children = action.payload;
+      state.children = sortChildren(action.payload || []);
     },
+
     initializeChildValue: () => {
       return initialState;
     },

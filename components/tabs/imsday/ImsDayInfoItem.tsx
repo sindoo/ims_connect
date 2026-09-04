@@ -83,12 +83,13 @@ function ImsDayInfoItem(props: any) {
             disabled={index === 0}>
             <MaterialIcons
               name="arrow-back-ios"
-              size={16}
+              size={20}
               color={index === 0 ? COLORS.grayLight : COLORS.gray}
             />
           </TouchableOpacity>
         </View>
         <View style={styles.imsDayHeaderTitle}>
+          <Text style={{textAlign: "center", color: COLORS.gray, fontSize: 20, fontWeight: 500} as StyleSheet}>{t('home.my_day_ims_title')}</Text>
           <Text style={{...globalStyles.title, textTransform: 'capitalize'} as StyleSheet}>
             {todayDate === selectImsDay
               ? t('myDayAtIms.today')
@@ -108,7 +109,7 @@ function ImsDayInfoItem(props: any) {
             disabled={size === index}>
             <MaterialIcons
               name="arrow-forward-ios"
-              size={16}
+              size={20}
               color={size === index ? COLORS.grayLight : COLORS.gray}
             />
           </TouchableOpacity>
