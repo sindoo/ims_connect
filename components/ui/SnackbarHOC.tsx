@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {Snackbar} from 'react-native-paper';
 import {COLORS} from '../../constants';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {MaterialCommunityIcons} from "@expo/vector-icons";
 
 export const withSnackbar = (WrappedComponent: any) => {
   return (props: any) => {

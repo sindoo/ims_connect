@@ -16,6 +16,11 @@ const notificationSlice = createSlice({
       //console.log("Num notif" +action.payload)
       state.notificationNumber = action.payload;
     },
+    decrementNotificationNumber: (state) => {
+      if (state.notificationNumber > 0) {
+        state.notificationNumber = state.notificationNumber - 1;
+      }
+    },
     initializeNotification: () => {
       return initialState;
     },
@@ -26,6 +31,7 @@ export const {
   initializeNotification,
   setNotificationList,
   setNotificationNumber,
+  decrementNotificationNumber,
 } = notificationSlice.actions;
 
 export default notificationSlice.reducer;

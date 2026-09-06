@@ -6,12 +6,18 @@ import {Drawer} from "expo-router/drawer";
 import {MaterialIcons} from "@expo/vector-icons";
 import {globalStyles} from "../../style/Global";
 import DrawerHeaderContent from "../../components/drawer/DrawerHeaderContent";
+import CustomHeaderWithButton from "../../components/ui/header/CustomHeaderWithButton";
+import {router} from "expo-router";
 
 
 const DrawerLayout = () => {
     const colorScheme = useColorScheme();
     const theme = COLORS[colorScheme] ?? COLORS.light;
     const {t} = useTranslation();
+
+    const handleBackRoute = (routeName: string) => {
+        router.push(routeName);
+    };
 
     return (
         <Drawer
@@ -43,7 +49,6 @@ const DrawerLayout = () => {
                 name="profile"
                 options={{
                     drawerLabel: t('drawer.profile'),
-                    headerShown: false,
                     drawerIcon: () => (
                         <MaterialIcons name="person" size={24} color={theme.drawerIconColor} /> as any
                     ),
@@ -57,6 +62,15 @@ const DrawerLayout = () => {
                     drawerStyle: {
                         width: '75%',
                     },
+                    header: () => {
+                        return (
+                            <CustomHeaderWithButton
+                                handleBackRoute={handleBackRoute}
+                                title={t('drawer.profile')}
+                                backRouteName="/(drawer)/(tabs)"
+                            />
+                        ) as any;
+                    },
                 }}
             />
 
@@ -64,7 +78,6 @@ const DrawerLayout = () => {
                 name="password"
                 options={{
                     drawerLabel: t('drawer.edit_password'),
-                    headerShown: false,
                     drawerIcon: () => (
                         <MaterialIcons name="password" size={24} color={theme.drawerIconColor} /> as any
                     ),
@@ -77,6 +90,15 @@ const DrawerLayout = () => {
                     drawerActiveTintColor: COLORS.white,
                     drawerStyle: {
                         width: '75%',
+                    },
+                    header: () => {
+                        return (
+                            <CustomHeaderWithButton
+                                handleBackRoute={handleBackRoute}
+                                title={t('drawer.edit_password')}
+                                backRouteName="/(drawer)/(tabs)"
+                            />
+                        ) as any;
                     },
                 }}
             />

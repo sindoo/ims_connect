@@ -211,7 +211,11 @@
         "from": "De",
         "from_rdv": "De l'éducateur",
         "from_admin": "De l'administration",
-        "empty_notification": "Aucune notification pour le moment"
+        "empty_notification": "Aucune notification pour le moment",
+        "all": " All ",
+        "read": "Lue (s)",
+        "unread": "Non lue (s)",
+        "appointment": "Rendez-vous"
     },
     "more": {
         "pictures": "Mes photos",

@@ -9,7 +9,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import WsNotificationService from "./WSNotificationService";
-import { NOTIFICATION_NAGIVATION } from "../constants/notification";
+import { NOTIFICATION_NAGIVATION } from "../constants";
 import { store } from '../redux/store';
 import { changeChild } from '../redux/features/child/childSlice';
 import {
@@ -19,6 +19,8 @@ import {
 } from '../redux/features/appointment/appointmentSlice';
 import { setDataNotification, setAlertMessageHeader } from '../redux/features/alertmessage/alertMessageSlide';
 import AppointmentService from '../services/AppointmentService';
+import { updateHeaderNotificationEveryWhere } from "./GeneralService";
+import {decrementNotificationNumber} from "../redux/features/notification/notificationSlide";
 
 // ✅ Configuration de l'affichage des notifications
 Notifications.setNotificationHandler({
@@ -35,6 +37,44 @@ let isNavigating = false;
 let pendingNotificationData: any = null;
 let isAppReady = false;
 let pendingNavigationCallback: (() => void) | null = null;
+
+// ✅ Fonction pour rafraîchir le compteur de notifications
+const refreshNotificationCount = async () => {
+    try {
+        const state = store.getState();
+        const { user } = state.user;
+        if (user?.uuid) {
+            await updateHeaderNotificationEveryWhere(user.uuid, store.dispatch);
+        }
+    } catch (error) {
+        console.log('Erreur refresh notification count:', error);
+    }
+};
+
+const refreshAppointmentPresetList = async () => {
+    const state = store.getState();
+    const { selectedChild } = state.child;
+    const dispatch = store.dispatch;
+    try {
+        const appointmentReq = await AppointmentService.getAllAppointment(selectedChild.person.id);
+        dispatch(setAllAppointmentList(appointmentReq));
+        const presetAppointment = await AppointmentService.getAllPresetAppointment(selectedChild);
+        dispatch(setPresetAppointmentList(presetAppointment));
+    }
+    catch (error) {
+        console.log('Erreur refresh appointment list:', error);
+    }
+}
+
+// ✅ Fonction pour décrémenter le compteur
+const decrementNotificationCounter = () => {
+    try {
+        store.dispatch(decrementNotificationNumber());
+        console.log('📉 Compteur de notifications décrémenté');
+    } catch (error) {
+        console.log('Erreur décrémentation compteur:', error);
+    }
+};
 
 // ✅ Marquer l'app comme prête
 export const markAppReady = (ready: boolean) => {
@@ -162,6 +202,10 @@ const handleAppointmentNotification = async (
             dispatch(setAppointmentDetailsInRedux(appointmentDetails));
             pathname = '/pages/appointment';
         }
+
+        // ✅ Rafraîchir le compteur
+        await refreshNotificationCount();
+
         // Navigation vers la liste des rendez-vous
         setTimeout(() => {
             router.push({
@@ -199,6 +243,10 @@ const handleAppointmentNotification = async (
             dispatch(setAppointmentDetailsInRedux(appointmentDetails));
             pathname = '/pages/appointment/preset-appointment-details';
         }
+
+        // ✅ Rafraîchir le compteur
+        await refreshNotificationCount();
+
         // Navigation vers la liste des rendez-vous présélectionnés
         setTimeout(() => {
             router.push({
@@ -281,6 +329,9 @@ const handleOtherNotification = async (
             return;
     }
 
+    // ✅ Rafraîchir le compteur
+    await refreshNotificationCount();
+
     // Navigation vers la route correspondante
     setTimeout(() => {
         router.push(routePath);
@@ -307,9 +358,7 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
 
     try {
         isNavigating = true;
-        //console.log('📨 Navigation depuis notification:', JSON.stringify(data));
 
-        //console.log(data);
         const rawJsonData = data?.json;
         if (!rawJsonData) {
             console.log('❌ Pas d\'identifiant');
@@ -324,6 +373,15 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
             console.log('❌ Notification non trouvée');
             isNavigating = false;
             return;
+        }
+
+        // ✅ Décrémenter le compteur avant la navigation
+        decrementNotificationCounter();
+
+        // ✅ Marquer la notification comme lue
+        const state = store.getState();
+        if (state.user?.user?.uuid) {
+            await WsNotificationService.markNotificationAsRead(state.user.user.uuid, notificationId);
         }
 
         const routeConfig = NOTIFICATION_NAGIVATION.find(
@@ -342,22 +400,24 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
             message: JSON.parse(notificationDetails?.message),
         };
 
-        //console.log(notificationDetails);
         // Traitement spécifique selon le type de notification
         if (notificationDetails?.common?.tag === 'rdv') {
-            console.log("rdv")
             await handleAppointmentNotification(
                 notificationDetails,
                 newNotificationData,
                 routePath
             );
         } else {
-            console.log("other")
             await handleOtherNotification(
                 notificationDetails,
                 notificationDetails,
                 routePath
             );
+        }
+
+        // ✅ Rafraîchir le compteur après navigation
+        if (state.user?.user?.uuid) {
+            await updateHeaderNotificationEveryWhere(state.user.user.uuid, store.dispatch);
         }
 
         console.log('✅ Navigation réussie vers:', routePath);
@@ -408,6 +468,10 @@ export function setupNotificationListeners() {
     const foregroundSubscription = Notifications.addNotificationReceivedListener(
         (notification) => {
             console.log('📬 Notification reçue en foreground');
+            refreshAppointmentPresetList().catch(error => console.log('Erreur refresh appointment preset list:', error));
+
+            // ✅ Mettre à jour le compteur
+            refreshNotificationCount().catch(error => console.log('Erreur refresh notification count:', error));
         }
     );
 
@@ -423,6 +487,10 @@ export function setupNotificationListeners() {
 
                 const unsubscribeFcm = onMessage(messaging, async (remoteMessage) => {
                     console.log('📬 FCM message reçu');
+
+                    // ✅ Mettre à jour le compteur
+                    await refreshNotificationCount();
+
                     await Notifications.scheduleNotificationAsync({
                         content: {
                             title: remoteMessage.notification?.title || 'Notification',

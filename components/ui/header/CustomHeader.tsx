@@ -11,6 +11,8 @@ import {changeAppLanguage} from "../../../redux/features/language/languageSlice"
 import LanguageComponent from "./LanguageComponent";
 import {Badge} from "react-native-paper";
 import { useNavigation, DrawerActions } from 'expo-router/react-navigation';
+import NotificationHeader from "./NotificationHeader";
+import {router} from "expo-router";
 
 const IMS_WEBSITE = 'https://www.ivorymontessorischool.com/';
 
@@ -48,6 +50,11 @@ const CustomHeader = ({ title }) => {
     const openDrawMenu = () => {
         navigation.dispatch(DrawerActions.toggleDrawer());
     };
+
+    const handleNotificationRoute = () => {
+        //setNotifModal(true);
+        router.push('pages/notification');
+    }
 
     useEffect(() => {
         setChildrenSelected(selectedChild !== null ? selectedChild?.person : selectedChild);
@@ -88,7 +95,8 @@ const CustomHeader = ({ title }) => {
 
                         <View style={styles.notification}>
                             {/* setNotifModal(true) */}
-                            <Pressable onPress={() => setNotifModal(true)}>
+
+                            <Pressable onPress={() => handleNotificationRoute()}>
                                 <Badge
                                     visible={true}
                                     size={18}
@@ -125,11 +133,11 @@ const CustomHeader = ({ title }) => {
                         handleLanguageChange={handleLanguageChange}
                     />
 
-                   {/* <NotificationHeader
+                    <NotificationHeader
                         notifModal={notifModal}
                         setNotifModal={setNotifModal}
                         navigation={navigation}
-                    />*/}
+                    />
                 </View>
             </ImageBackground>
 

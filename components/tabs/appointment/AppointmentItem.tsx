@@ -121,7 +121,7 @@ function AppointmentItem(props: any) {
               {t('appointment.time_slot')} : {startTime} - {endTime}
             </Text>
             {/*<ButtonActionStatus data={data} snackbarShowMessage={snackbarShowMessage} />*/}
-            <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+            <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start'} as StyleSheet}>
               <Text style={{marginVertical: 5, padding:3, paddingHorizontal:7, fontSize: 11, fontWeight: 400, borderRadius: 5, ...((data.meetingType === 'NORMAL' &&
                         data.meetingStatus === 'CONFIRM' &&
                         styles.validateStatus) ||

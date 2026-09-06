@@ -18,8 +18,7 @@ import ConversationService from "../../../../services/ConversationService";
 import {setDiscussionTreadList} from "../../../../redux/features/message/messageSlice";
 import {
     checkAppState,
-    checkTokenExpired,
-    updateHeaderNotificationEveryWhere
+    checkTokenExpired
 } from "../../../../services/GeneralService";
 import Loading from "../../../../components/ui/Loading";
 import {COLORS} from "../../../../constants";

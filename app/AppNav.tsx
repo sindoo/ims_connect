@@ -40,13 +40,13 @@ const AppNav = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (user !== null) {
+            if (user !== null && user?.uuid) {
                 await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
             }
             checkTokenExpired(userToken, dispatch);
         };
         fetchData().catch(error => console.log(error));
-    }, [selectedChild]);
+    }, [selectedChild, user]); // ✅ Ajout de 'user' comme dépendance
 
     // ✅ Vérification des notifications en attente quand l'utilisateur est authentifié
     useEffect(() => {
@@ -147,6 +147,21 @@ const AppNav = () => {
                                     },
                                 }}
                             />
+
+                            <Stack.Screen
+                            name="pages/notification/index"
+                            options={{
+                                header: () => {
+                                    return (
+                                        <CustomHeaderWithButton
+                                            handleBackRoute={handleBackRoute}
+                                            title={t('notification.title')}
+                                            backRouteName="(drawer)/(tabs)"
+                                        />
+                                    ) as any;
+                                },
+                            }}
+                        />
                         </Stack.Protected>
                     </Stack>
                 </GestureHandlerRootView>

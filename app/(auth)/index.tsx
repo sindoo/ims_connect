@@ -10,6 +10,7 @@ import { postRequest, putRequest, setAuthToken } from "../../api/ApiManager";
 import { setUserFCMToken, setUserSliceToken } from "../../redux/features/user/userSlice";
 import { getUserChildren } from "../../redux/features/child/childSlice";
 import { getFcmToken } from "../../services/notificationService";
+import { updateHeaderNotificationEveryWhere } from "../../services/GeneralService";
 
 const Login = () => {
     const router = useRouter();
@@ -50,6 +51,12 @@ const Login = () => {
             dispatch(getUserChildren(response));
             setAuthToken(response.token);
             dispatch(setUserSliceToken(response.token));
+
+            // ✅ Récupérer les notifications après connexion
+            await updateHeaderNotificationEveryWhere(response.user.uuid, dispatch);
+
+            // Navigation vers la sélection de profil
+            router.push('/');
         }
         catch (error: any) {
             if (error?.code === 'ERR_NETWORK') {

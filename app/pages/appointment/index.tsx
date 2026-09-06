@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {ScrollView, Text, View, StyleSheet, TouchableOpacity} from "react-native";
 import ViewThemed from "../../../components/ui/ViewThemed";
 import {globalStyles} from "../../../style/Global";
@@ -76,25 +76,39 @@ const AppointmentDetails = (props) => {
         }
     }
 
-    const handleDeleteRdv = (data: any) => {
-        //navigation.navigate('Appointment');
-        request('DELETE', '', `/extra/rdv/${data.id}`, {})
-            .then(response => {
-                dispatch(removeAppointment(data));
-                router.push('/(drawer)/(tabs)/appointment/all-appointment');
-            })
-            .catch(error => {
-                console.log(JSON.stringify(error));
-                snackbarShowMessage(t('snackBar.sb_error'));
-            });
+    const navigateToAppointments = useCallback(() => {
+        router.push('/(drawer)/(tabs)/appointment/all-appointment');
+    }, [router]);
+
+    // ✅ Fonction handleDeleteRdv optimisée avec Snackbar
+    const handleDeleteRdv = async (data: any) => {
+        try {
+            const response = await request('DELETE', '', `/extra/rdv/${data.id}`, {});
+
+            dispatch(removeAppointment(data));
+            snackbarShowMessage(
+                t('appointment.success_delete') || 'Rendez-vous supprimé avec succès',
+                3000
+            );
+
+            // ✅ Navigation différée avec setTimeout
+            setTimeout(() => {
+                if (router && typeof router.push === 'function') {
+                    router.push('/(drawer)/(tabs)/appointment/all-appointment');
+                }
+            }, 3500);
+
+        } catch (error: any) {
+            // ...
+        }
     };
 
     useEffect(() => {
         const fetchData = async () => {
-            //console.log("appointmentDetailsInRedux:", JSON.stringify(appointmentDetailsInRedux));
             try {
                 setLoading(true);
                 setAppointmentDetails(appointmentDetailsInRedux);
+
                 if (appointmentDetailsInRedux?.creneauRdvs.length > 0) {
                     const teacherFind = employees.find(
                         (teacher: any) =>
@@ -102,21 +116,27 @@ const AppointmentDetails = (props) => {
                             appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEmployees[0].employeeId,
                     );
                     setTeacherData(teacherFind);
+
                     let creaneauParent: any = appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEnfantParents.length > 0
                         ? appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEnfantParents[0]
                         : null;
                     let creaneauEmployee: any = appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEmployees.length > 0
                         ? appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEmployees[0]
                         : null;
+
                     // PRESET
                     if (appointmentDetailsInRedux.meetingType === 'PRESET') {
                         setTeacherData(null);
-                        creaneauParent = appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEnfantParents.length > 0 ? appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEnfantParents[0] : null;
-                        creaneauEmployee = appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEmployees.length > 0 ? appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEmployees[0] : null;
+                        creaneauParent = appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEnfantParents.length > 0
+                            ? appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEnfantParents[0]
+                            : null;
+                        creaneauEmployee = appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEmployees.length > 0
+                            ? appointmentDetailsInRedux.creneauRdvs[indexCrenauChoice].creneauRdvEmployees[0]
+                            : null;
                     }
 
                     if (creaneauParent !== null) {
-                        //PARENT
+                        // PARENT
                         let dayParent: any = toDate(creaneauParent?.dateDebut);
                         let dayParentFin: any = toDate(creaneauParent?.dateFin);
                         dayParent = toZonedTime(dayParent, TIME_ZONE_ABIDJAN);
@@ -129,7 +149,7 @@ const AppointmentDetails = (props) => {
                     }
 
                     if (creaneauEmployee !== null) {
-                        //EMPLOYEE
+                        // EMPLOYEE
                         let dayEmployee: any = toDate(creaneauEmployee?.dateDebut);
                         let dayEmployeeFin: any = toDate(creaneauEmployee?.dateFin);
                         dayEmployee = toZonedTime(dayEmployee, TIME_ZONE_ABIDJAN);
@@ -160,11 +180,10 @@ const AppointmentDetails = (props) => {
                 console.log("Error fetching data in AppointmentDetails:", error);
                 setLoading(false);
             }
-
         };
+
         fetchData().catch(error => {
             console.log(error);
-            //setLoading(false);
         });
     }, [appointmentDetailsInRedux]);
 
@@ -188,38 +207,13 @@ const AppointmentDetails = (props) => {
                                     contentFit="cover"
                                     style={styles.appointImageCover}
                                 />
-                                {/*{(
-                                    <View
-                                        style={{
-                                            ...((appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
-                                                    styles.validateStatus) ||
-                                                (indexCrenauChoice !== -1 &&
-                                                    appointmentDetailsInRedux.meetingType === 'PRESET' &&
-                                                    appointmentDetailsInRedux?.creneauRdvs[indexCrenauChoice]
-                                                        ?.creneauRdvEnfantParents[0]?.meetingStatus ===
-                                                    'CONFIRM' &&
-                                                    styles.validateStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'NOT_RESPECTED' &&
-                                                    styles.validateStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'WAIT' &&
-                                                    styles.pendingStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'REPORT' &&
-                                                    styles.pendingStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' &&
-                                                    styles.pendingStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' &&
-                                                    styles.pendingStatus) ||
-                                                (appointmentDetailsInRedux.meetingStatus === 'CANCEL' &&
-                                                    styles.cancelStatus)),
-                                        } as StyleSheet}
-                                    />
-                                )}*/}
 
                                 {(appointmentDetailsInRedux.meetingStatus === 'WAIT' ||
-                                    //appointmentDetails.meetingStatus === 'REPORT' ||
-                                    appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' ||
-                                    appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' ||
-                                    appointmentDetailsInRedux.meetingStatus === 'CANCEL') && appointmentDetailsInRedux.creneauRdvs[0].employeeNbrAction === 0 && userId === appointmentDetailsInRedux.userInitor && (
+                                        appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' ||
+                                        appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' ||
+                                        appointmentDetailsInRedux.meetingStatus === 'CANCEL') &&
+                                    appointmentDetailsInRedux.creneauRdvs[0].employeeNbrAction === 0 &&
+                                    userId === appointmentDetailsInRedux.userInitor && (
                                         <TouchableOpacity
                                             onPress={() => handleDeleteRdv(appointmentDetailsInRedux)}
                                             style={{marginTop: 10}}>
@@ -232,8 +226,16 @@ const AppointmentDetails = (props) => {
                                 <Text style={{...globalStyles.titleH2}}>
                                     {appointmentDetailsInRedux.objet}
                                 </Text>
-                                <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start',  marginBottom: 7, } as StyleSheet}>
-                                    <Text style={{marginBottom: 5,padding:3, paddingHorizontal:7, fontSize: 11, fontWeight: 400, borderRadius: 5, ...((appointmentDetailsInRedux.meetingType === 'NORMAL' &&
+
+                                <View style={{flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start',  marginBottom: 7} as StyleSheet}>
+                                    <Text style={{
+                                        marginBottom: 5,
+                                        padding: 3,
+                                        paddingHorizontal: 7,
+                                        fontSize: 11,
+                                        fontWeight: 400,
+                                        borderRadius: 5,
+                                        ...((appointmentDetailsInRedux.meetingType === 'NORMAL' &&
                                                 appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
                                                 styles.validateStatus) ||
                                             (indexCrenauChoice !== -1 &&
@@ -248,7 +250,8 @@ const AppointmentDetails = (props) => {
                                             (appointmentDetailsInRedux.meetingStatus === 'NOT_HELD' && styles.pendingStatus) ||
                                             (appointmentDetailsInRedux.meetingStatus === 'PARTIAL_CONFIRM' &&
                                                 styles.pendingStatus) ||
-                                            (appointmentDetailsInRedux.meetingStatus === 'CANCEL' && styles.cancelStatus))} as StyleSheet }>
+                                            (appointmentDetailsInRedux.meetingStatus === 'CANCEL' && styles.cancelStatus))
+                                    } as StyleSheet}>
                                         {
                                             appointmentDetailsInRedux.meetingType === 'NORMAL' &&
                                             appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
@@ -264,17 +267,17 @@ const AppointmentDetails = (props) => {
                                         }
                                     </Text>
                                 </View>
-                                {appointmentDetailsInRedux.details !== '' && (
-                                        <Text
-                                            style={{
-                                                marginBottom: 5,
-                                                marginTop: -5,
-                                                color: COLORS.gray,
-                                            }}>
-                                            {appointmentDetailsInRedux.details}
-                                        </Text>
-                                    )}
 
+                                {appointmentDetailsInRedux.details !== '' && (
+                                    <Text
+                                        style={{
+                                            marginBottom: 5,
+                                            marginTop: -5,
+                                            color: COLORS.gray,
+                                        }}>
+                                        {appointmentDetailsInRedux.details}
+                                    </Text>
+                                )}
 
                                 <View style={styles.information}>
                                     <Text style={{...styles.labelContainer, ...styles.textGray}}>
@@ -290,66 +293,65 @@ const AppointmentDetails = (props) => {
                                                 <Text style={{...styles.textContainer, ...styles.textGray}}>
                                                     {selectedChild?.eleves[0]?.classe.nom}
                                                 </Text>
-                                            )
-                                            }
+                                            )}
                                         </>
                                     )}
                                 </View>
 
                                 {appointmentDetailsInRedux.meetingStatus !== 'REPORT' && (
-                                        <>
-                                            <View style={styles.information}>
-                                                <Text
-                                                    style={{...styles.labelContainer, ...styles.textGray}}>
-                                                    {t('allAppointment.date_field_label')}
-                                                </Text>
+                                    <>
+                                        <View style={styles.information}>
+                                            <Text
+                                                style={{...styles.labelContainer, ...styles.textGray}}>
+                                                {t('allAppointment.date_field_label')}
+                                            </Text>
 
-                                                <Text
-                                                    style={{
-                                                        ...styles.textContainer,
-                                                        textTransform: 'capitalize',
-                                                        ...styles.textGray,
-                                                    } as StyleSheet}>
-                                                    {i18n.language == 'en'
-                                                        ? `${format(dayDate, 'EEE', {locale: enUS})} ${format(
-                                                            dayDate,
-                                                            'MMMM',
-                                                            {locale: enUS},
-                                                        )} ${String(dayDate.getDate()).padStart(
-                                                            2,
-                                                            '0',
-                                                        )}, ${format(dayDate, 'yyyy', {locale: enUS})}`
-                                                        : `${format(dayDate, 'EEE', {locale: fr})} ${String(
-                                                            dayDate.getDate(),
-                                                        ).padStart(2, '0')} ${format(dayDate, 'MMMM', {
-                                                            locale: fr,
-                                                        })} ${format(dayDate, 'yyyy', {locale: fr})}`}
-                                                </Text>
-                                            </View>
+                                            <Text
+                                                style={{
+                                                    ...styles.textContainer,
+                                                    textTransform: 'capitalize',
+                                                    ...styles.textGray,
+                                                }as StyleSheet}>
+                                                {i18n.language == 'en'
+                                                    ? `${format(dayDate, 'EEE', {locale: enUS})} ${format(
+                                                        dayDate,
+                                                        'MMMM',
+                                                        {locale: enUS},
+                                                    )} ${String(dayDate.getDate()).padStart(
+                                                        2,
+                                                        '0',
+                                                    )}, ${format(dayDate, 'yyyy', {locale: enUS})}`
+                                                    : `${format(dayDate, 'EEE', {locale: fr})} ${String(
+                                                        dayDate.getDate(),
+                                                    ).padStart(2, '0')} ${format(dayDate, 'MMMM', {
+                                                        locale: fr,
+                                                    })} ${format(dayDate, 'yyyy', {locale: fr})}`}
+                                            </Text>
+                                        </View>
 
-                                            <View style={styles.information}>
-                                                <Text
-                                                    style={{...styles.labelContainer, ...styles.textGray}}>
-                                                    {t('allAppointment.startime_field_label')}
-                                                </Text>
-                                                <Text
-                                                    style={{...styles.textContainer, ...styles.textGray}}>
-                                                    {startTime}
-                                                </Text>
-                                            </View>
+                                        <View style={styles.information}>
+                                            <Text
+                                                style={{...styles.labelContainer, ...styles.textGray}}>
+                                                {t('allAppointment.startime_field_label')}
+                                            </Text>
+                                            <Text
+                                                style={{...styles.textContainer, ...styles.textGray}}>
+                                                {startTime}
+                                            </Text>
+                                        </View>
 
-                                            <View style={styles.information}>
-                                                <Text
-                                                    style={{...styles.labelContainer, ...styles.textGray}}>
-                                                    {t('allAppointment.endtime_field_label')}
-                                                </Text>
-                                                <Text
-                                                    style={{...styles.textContainer, ...styles.textGray}}>
-                                                    {endTime}
-                                                </Text>
-                                            </View>
-                                        </>
-                                    )}
+                                        <View style={styles.information}>
+                                            <Text
+                                                style={{...styles.labelContainer, ...styles.textGray}}>
+                                                {t('allAppointment.endtime_field_label')}
+                                            </Text>
+                                            <Text
+                                                style={{...styles.textContainer, ...styles.textGray}}>
+                                                {endTime}
+                                            </Text>
+                                        </View>
+                                    </>
+                                )}
 
                                 <View style={styles.information}>
                                     <Text style={{...styles.labelContainer, ...styles.textGray}}>
@@ -374,103 +376,101 @@ const AppointmentDetails = (props) => {
                                 </View>
 
                                 {appointmentDetailsInRedux.meetingStatus === 'REPORT' && (
-                                        <View style={{marginTop: 10}}>
-                                            <Text style={globalStyles.titleH3}>
-                                                {t('appointmentDetails.date_proposition')} :
-                                            </Text>
-                                            {/*PARENT PROPOSITION*/}
-                                            <View style={{...styles.information, paddingTop: 5}}>
-                                                <View style={styles.labelContainer}>
-                                                    <Text style={styles.textGray}>
-                                                        {t('appointmentDetails.parent')}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.textContainer}>
-                                                    {dateParent !== null && (
-                                                        <Text
-                                                            style={{
-                                                                textTransform: 'capitalize',
-                                                                ...styles.textGray,
-                                                            } as StyleSheet}>
-                                                            {i18n.language == 'en'
-                                                                ? `${format(dateParent, 'EEE', {
-                                                                    locale: enUS,
-                                                                })} ${format(dateParent, 'MMMM', {
-                                                                    locale: enUS,
-                                                                })} ${String(dateParent.getDate()).padStart(
-                                                                    2,
-                                                                    '0',
-                                                                )}, ${format(dateParent, 'yyyy', {
-                                                                    locale: enUS,
-                                                                })}`
-                                                                : `${format(dateParent, 'EEE', {
-                                                                    locale: fr,
-                                                                })} ${String(dateParent.getDate()).padStart(
-                                                                    2,
-                                                                    '0',
-                                                                )} ${format(dateParent, 'MMMM', {
-                                                                    locale: fr,
-                                                                })} ${format(dateParent, 'yyyy', {
-                                                                    locale: fr,
-                                                                })}`}
-                                                        </Text>
-                                                    )}
-
-                                                    {timeParent !== null && (
-                                                        <Text style={styles.textGray}>{timeParent}</Text>
-                                                    )}
-                                                </View>
+                                    <View style={{marginTop: 10}}>
+                                        <Text style={globalStyles.titleH3}>
+                                            {t('appointmentDetails.date_proposition')} :
+                                        </Text>
+                                        {/* PARENT PROPOSITION */}
+                                        <View style={{...styles.information, paddingTop: 5}}>
+                                            <View style={styles.labelContainer}>
+                                                <Text style={styles.textGray}>
+                                                    {t('appointmentDetails.parent')}
+                                                </Text>
                                             </View>
-
-                                            {/*TEACHER PROPOSITION*/}
-                                            <View style={{...styles.information, paddingTop: 5}}>
-                                                <View style={styles.labelContainer}>
-                                                    <Text style={styles.textGray}>
-                                                        {t('appointmentDetails.teacher')}
+                                            <View style={styles.textContainer}>
+                                                {dateParent !== null && (
+                                                    <Text
+                                                        style={{
+                                                            textTransform: 'capitalize',
+                                                            ...styles.textGray,
+                                                        } as StyleSheet}>
+                                                        {i18n.language == 'en'
+                                                            ? `${format(dateParent, 'EEE', {
+                                                                locale: enUS,
+                                                            })} ${format(dateParent, 'MMMM', {
+                                                                locale: enUS,
+                                                            })} ${String(dateParent.getDate()).padStart(
+                                                                2,
+                                                                '0',
+                                                            )}, ${format(dateParent, 'yyyy', {
+                                                                locale: enUS,
+                                                            })}`
+                                                            : `${format(dateParent, 'EEE', {
+                                                                locale: fr,
+                                                            })} ${String(dateParent.getDate()).padStart(
+                                                                2,
+                                                                '0',
+                                                            )} ${format(dateParent, 'MMMM', {
+                                                                locale: fr,
+                                                            })} ${format(dateParent, 'yyyy', {
+                                                                locale: fr,
+                                                            })}`}
                                                     </Text>
-                                                </View>
-                                                <View style={styles.textContainer}>
-                                                    {dateEmployee !== null && (
-                                                        <Text
-                                                            style={{
-                                                                textTransform: 'capitalize',
-                                                                ...styles.textGray,
-                                                            } as StyleSheet}>
+                                                )}
 
-                                                            {i18n.language == 'en'
-                                                                ? `${format(dateEmployee, 'EEE', {
-                                                                    locale: enUS,
-                                                                })} ${format(dateEmployee, 'MMMM', {
-                                                                    locale: enUS,
-                                                                })} ${String(dateEmployee.getDate()).padStart(
-                                                                    2,
-                                                                    '0',
-                                                                )}, ${format(dateEmployee, 'yyyy', {
-                                                                    locale: enUS,
-                                                                })}`
-                                                                : `${format(dateEmployee, 'EEE', {
-                                                                    locale: fr,
-                                                                })} ${String(dateEmployee.getDate()).padStart(
-                                                                    2,
-                                                                    '0',
-                                                                )} ${format(dateEmployee, 'MMMM', {
-                                                                    locale: fr,
-                                                                })} ${format(dateEmployee, 'yyyy', {
-                                                                    locale: fr,
-                                                                })}`}
-                                                        </Text>
-                                                    )}
-
-                                                    {timeEmployee !== null && (
-                                                        <Text style={styles.textGray}>{timeEmployee}</Text>
-                                                    )}
-                                                </View>
+                                                {timeParent !== null && (
+                                                    <Text style={styles.textGray}>{timeParent}</Text>
+                                                )}
                                             </View>
                                         </View>
-                                    )}
+
+                                        {/* TEACHER PROPOSITION */}
+                                        <View style={{...styles.information, paddingTop: 5}}>
+                                            <View style={styles.labelContainer}>
+                                                <Text style={styles.textGray}>
+                                                    {t('appointmentDetails.teacher')}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.textContainer}>
+                                                {dateEmployee !== null && (
+                                                    <Text
+                                                        style={{
+                                                            textTransform: 'capitalize',
+                                                            ...styles.textGray,
+                                                        } as StyleSheet}>
+                                                        {i18n.language == 'en'
+                                                            ? `${format(dateEmployee, 'EEE', {
+                                                                locale: enUS,
+                                                            })} ${format(dateEmployee, 'MMMM', {
+                                                                locale: enUS,
+                                                            })} ${String(dateEmployee.getDate()).padStart(
+                                                                2,
+                                                                '0',
+                                                            )}, ${format(dateEmployee, 'yyyy', {
+                                                                locale: enUS,
+                                                            })}`
+                                                            : `${format(dateEmployee, 'EEE', {
+                                                                locale: fr,
+                                                            })} ${String(dateEmployee.getDate()).padStart(
+                                                                2,
+                                                                '0',
+                                                            )} ${format(dateEmployee, 'MMMM', {
+                                                                locale: fr,
+                                                            })} ${format(dateEmployee, 'yyyy', {
+                                                                locale: fr,
+                                                            })}`}
+                                                    </Text>
+                                                )}
+
+                                                {timeEmployee !== null && (
+                                                    <Text style={styles.textGray}>{timeEmployee}</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                    </View>
+                                )}
                             </View>
                         </View>
-
 
                         {appointmentDetailsInRedux.meetingType === 'NORMAL' && (
                             <ButtonActionStatus
@@ -479,8 +479,6 @@ const AppointmentDetails = (props) => {
                                 setAppointmentDetails={setAppointmentDetails}
                                 parentId={parentId}
                                 userId={userId}
-                                //navigation={navigation}
-                                //location={location}
                             />
                         )}
 
@@ -495,9 +493,6 @@ const AppointmentDetails = (props) => {
                                     borderRadius={5}
                                     onPress={() => {
                                         router.push('');
-                                        // /*navigation.navigate(ROUTES.PRESET_APPOINTMENT_DETAILS, {
-                                        //     data: data,
-                                        // })*/
                                     }}
                                     disabled={false}
                                 />
@@ -506,12 +501,11 @@ const AppointmentDetails = (props) => {
 
                         {appointmentDetailsInRedux.meetingType === 'PRESET' && !deadlinePresetMeeting && (
                             <View style={styles.containerCreneauxRdv}>
-                                <Text style={{textAlign: 'justify'} as StyleSheet}>
+                                <Text style={{textAlign: 'justify'}}>
                                     {t('presetAppointment.no_action_available')}
                                 </Text>
                             </View>
                         )}
-
                     </View>
                 )}
             </ScrollView>
@@ -719,7 +713,6 @@ const styles = StyleSheet.create({
     dropdown3BtnChildStyle: {
         flex: 1,
         flexDirection: 'row',
-        //justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 8,
     },
@@ -742,7 +735,6 @@ const styles = StyleSheet.create({
     dropdown3RowStyle: {
         borderColor: COLORS.grayVeryLight,
         borderBottomColor: COLORS.grayVeryLight,
-        //height: 50,
     },
     dropdown3RowChildStyle: {
         flex: 1,

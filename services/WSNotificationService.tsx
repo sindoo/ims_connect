@@ -2,7 +2,7 @@ import {deleteRequest, getRequest, putRequest} from "../api/ApiManager";
 import {BASEURL_MSG_NOTIF} from "../api/appUrl";
 class WsNotificationService {
     static getAllNotification = async (userUuid: any) => {
-        const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
+        const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}/all`); //user.uuid
         if(Array.isArray(allNotificationRequest) && allNotificationRequest.length > 0) {
             let allNotificationList =  allNotificationRequest.sort(function (a: any, b: any) {
                 return a.dateSent - b.dateSent;
@@ -13,11 +13,22 @@ class WsNotificationService {
             return [];
         }
     };
-    static getUserNotificationById = async (notificationId: string) => {
+    static getUserNotificationById = async (notificationId: string|undefined) => {
         return await getRequest('', `/ws/notifications/${notificationId}`);
     };
-    static updateNotification = async (user:any, notificationId: number) => {
+    static updateNotification = async (user: any, notificationId: string | undefined) => {
         const notificationReq:any = await putRequest('', `/ws/notifications/utilisateur/${user.uuid}/read/${notificationId}`, {});
+    };
+    // ✅ Méthode pour marquer une notification comme lue
+    static markNotificationAsRead = async (userUuid: string, notificationId: string) => {
+        try {
+            await putRequest('', `/ws/notifications/utilisateur/${userUuid}/read/${notificationId}`, {});
+            console.log(`✅ Notification ${notificationId} marquée comme lue`);
+            return true;
+        } catch (error) {
+            console.log('Erreur marquage notification:', error);
+            return false;
+        }
     };
     static deleteOldNotification = async (userUuid: any) => {
         const allNotificationRequest:any = await getRequest('', `/ws/notifications/utilisateur/${userUuid}`); //user.uuid
@@ -44,13 +55,31 @@ class WsNotificationService {
             }
         }
     };
+    static subtractOneMonth = (date: Date) => {
+        const result = new Date(date);
+        const originalDay = result.getDate();
+
+        // Soustraction du mois
+        result.setMonth(result.getMonth() - 1);
+
+        // Si le jour a sauté vers le mois suivant (ex: 31 mars devenu 3 mars),
+        // setDate(0) repositionne au dernier jour du mois précédent (28/29 fév ou 30 avr).
+        if (result.getDate() !== originalDay) {
+            result.setDate(0);
+        }
+
+        return result;
+    }
     static getRecentNotificationList = (dataList:any) => {
-        let today = new Date();
+        /*let today = new Date();
         today.setHours(0,0,0,0);
         const month = today.getMonth();
         today.setMonth(month - 1);
-        const timestamp = today.getTime();
+        const timestamp = today.getTime();*/
 
+        // Exemple d'utilisation :
+        let today = new Date();
+        let timestamp = WsNotificationService.subtractOneMonth(today);
         const filteredList = dataList.filter((data:any) => data.dateSent >= timestamp &&  data.dateRead === null);
 
         let notificationList:any = [];

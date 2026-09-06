@@ -211,7 +211,11 @@
         "from": "From",
         "from_rdv": "From teacher",
         "from_admin": "From administration",
-        "empty_notification": "No notification available"
+        "empty_notification": "No notification available",
+        "all": " All ",
+        "read": " Read ",
+        "unread": " Unread (s) ",
+        "appointment": "Appointment"
     },
     "more": {
         "pictures": "My Photos",

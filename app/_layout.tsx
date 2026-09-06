@@ -14,6 +14,8 @@ import {
 } from "../services/notificationService";
 import * as Notifications from 'expo-notifications';
 import {AppState, Platform} from 'react-native';
+import { updateHeaderNotificationEveryWhere } from "../services/GeneralService";
+import { store } from "../redux/store";
 
 // ✅ Gestion des messages en background - UNIQUEMENT pour les data-only
 // mais avec un try/catch pour éviter les erreurs
@@ -113,6 +115,14 @@ const RootLayout = () => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (appState.current.match?.(/background|inactive/) && nextAppState === 'active') {
                 console.log('📱 App au premier plan');
+
+                // ✅ Mettre à jour les notifications quand l'app revient au premier plan
+                const state = store.getState();
+                if (state.user?.user?.uuid) {
+                    updateHeaderNotificationEveryWhere(state.user.user.uuid, store.dispatch)
+                        .catch(error => console.log('Erreur refresh notifications:', error));
+                }
+
                 // Vérifier les notifications en attente
                 if (!hasHandledInitialNotification.current) {
                     hasHandledInitialNotification.current = true;

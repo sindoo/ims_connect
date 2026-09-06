@@ -5,6 +5,7 @@ export default {
     primaryDark: '#AD1457',
     secondary: '#2A88C9',
     secondaryLight: '#D4E7F4',
+    secondaryVeryLight: '#f5faff',
     secondaryDark: '#1A237E',
     white: '#FFFFFF',
     darkGrey: '#444444',
