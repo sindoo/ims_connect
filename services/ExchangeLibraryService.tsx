@@ -1,18 +1,44 @@
 import {getRequest, postRequest} from "../api/ApiManager";
 import {getTime} from "date-fns";
 import {CONSTANT} from "../constants";
+import {array} from "yup";
 
 class ExchangeLibraryService {
+    static formatBorrowBooksList = async (resultList: array) => {
+        let bookList = [];
+        let updateBook = null;
+        if (resultList.length > 0) {
+            for (let i = 0; i < resultList.length; i++) {
+                const book = resultList[i];
+                const booksBorrowRequest: any = await getRequest(
+                    '',
+                    `/extra/bibliotheque/${book.livreId}`,
+                );
+                if (booksBorrowRequest !== undefined) {
+                    updateBook = {
+                        ...booksBorrowRequest,
+                        ...book,
+                    };
+                }
+                if (updateBook !== null) {
+                    bookList.push(updateBook);
+                }
+            }
+        }
+        return bookList;
+    };
   static getChildBorrowBooksList = async (selectedChildId: number) => {
       const booksBorrowRequest: any = await getRequest(
           '',
           `/extra/livremprunt/encours/enfant/${selectedChildId}`,
       );
 
-      const resultList = booksBorrowRequest._embedded !== undefined
-          ? booksBorrowRequest._embedded.livreEmpruntDTOModelList
+      const resultList = booksBorrowRequest !== undefined
+          ? booksBorrowRequest
           : [];
-      let bookList = [];
+      return await ExchangeLibraryService.formatBorrowBooksList(resultList);
+
+      /*let bookList = [];
       let updateBook = null;
       if (resultList.length > 0) {
           for (let i = 0; i < resultList.length; i++) {
@@ -32,8 +58,19 @@ class ExchangeLibraryService {
               }
           }
       }
-      return bookList;
+      return bookList;*/
   };
+  static getChildBorrowHistoryBooksList = async (selectedChildId: number) => {
+      const booksBorrowRequest: any = await getRequest(
+          '',
+          `/extra/livremprunt/historic/enfant/${selectedChildId}`,
+      );
+
+      const resultList = booksBorrowRequest !== undefined
+          ? booksBorrowRequest
+          : [];
+      return await ExchangeLibraryService.formatBorrowBooksList(resultList);
+  }
   static getBookDataByPageNumber = async (page:number, size:number) => {
       const booksRequest: any = await getRequest(
           '',
@@ -60,8 +97,8 @@ class ExchangeLibraryService {
   };
   static getSearchBookData = async (filterApi:any, search:string) => {
       const booksRequest: any = await getRequest('', `/extra/bibliotheque?filter=${filterApi}`);
-      let booksFounded = booksRequest._embedded !== undefined
-          ? booksRequest._embedded.livreDTOModelList
+      let booksFounded = booksRequest!== undefined
+          ? booksRequest
           : [];
 
       let bookList:any = [];
@@ -90,6 +127,12 @@ class ExchangeLibraryService {
       };
       return await postRequest('', '/extra/livremprunt', dataToSend);
   };
+  static getCategoryBookById = async (categoryId: number | undefined) => {
+      return await getRequest(
+            '',
+            `/corebase/categorielivre/${categoryId}`,
+        );
+  }
 }
 
 export default ExchangeLibraryService;

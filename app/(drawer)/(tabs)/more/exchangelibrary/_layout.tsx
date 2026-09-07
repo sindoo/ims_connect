@@ -67,6 +67,20 @@ const ExchangeLibraryLayout = () => {
                         },
                     }}
                 />
+
+                <MaterialTopTabs.Screen
+                    name="borrowing-history"
+                    options={{
+                        tabBarLabel: t('more.borrow_history'),
+                        title: t('more.borrow_history'),
+                        tabBarLabelStyle: {
+                            textTransform: 'none',
+                            fontSize: 15,
+                            fontWeight: '700',
+                        },
+                    }}
+                />
+
             </MaterialTopTabs>
 
         </ViewThemed>

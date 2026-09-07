@@ -10,6 +10,9 @@ const AXIOS_BASEURL = 'https://ivorymontessorisystem.com/imsv3/api/v1'; // GOOD
 //const AXIOS_BASEURL = "https://ivorymontessorisystem.com:8443/api/v1"; // GOOD
 
 axios.defaults.headers.post['Content-Type'] = 'application/json';
+axios.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+axios.defaults.headers.common['Pragma'] = 'no-cache';
+axios.defaults.headers.common['Expires'] = '0';
 
 export const getAuthToken = async () => {
   return await AsyncStorage.getItem('authToken');
@@ -24,10 +27,10 @@ export const removeAuthToken = () => {
 };
 
 export const request = async (
-  method: any,
-  baseURL: any,
-  url: any,
-  data: any,
+    method: any,
+    baseURL: any,
+    url: any,
+    data: any,
 ) => {
   let headers = {};
   const token = await getAuthToken();
@@ -47,15 +50,18 @@ export const request = async (
 };
 
 export const uploadFileRequest = async (
-  method: any,
-  baseURL: any,
-  url: any,
-  data: any,
+    method: any,
+    baseURL: any,
+    url: any,
+    data: any,
 ) => {
   //let headers = { 'Content-Type': 'multipart/form-data' };
   let headers = {
     Accept: 'application/json',
     'Content-Type': 'multipart/form-data',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
   };
   const token = await getAuthToken();
   if (token !== null) {
@@ -71,7 +77,9 @@ export const uploadFileRequest = async (
   });
 };
 
-export const getRequest = async (baseURL: any, url: any) => {
+// signal (optionnel) : permet d'annuler la requête via un AbortController,
+// sans casser les appels existants qui ne le fournissent pas.
+export const getRequest = async (baseURL: any, url: any, signal?: AbortSignal) => {
   let headers = {};
   const token = await getAuthToken();
   const completeURL = baseURL === '' ? AXIOS_BASEURL + url : baseURL + url;
@@ -79,17 +87,20 @@ export const getRequest = async (baseURL: any, url: any) => {
   if (token !== null) {
     headers = {...headers, ...{Authorization: `Bearer ${token}`}};
   }
-  const config = {
+  const config: any = {
     headers: headers,
   };
+  if (signal) {
+    config.signal = signal;
+  }
   const response = await axios.get(completeURL, config);
   return response.data;
 };
 
 export const postRequest = async (
-  baseURL: any = AXIOS_BASEURL,
-  url: any,
-  data: any,
+    baseURL: any = AXIOS_BASEURL,
+    url: any,
+    data: any,
 ) => {
   let headers = {};
   const token = await getAuthToken();
@@ -106,9 +117,9 @@ export const postRequest = async (
 };
 
 export const putRequest = async (
-  baseURL: any = AXIOS_BASEURL,
-  url: any,
-  data: any,
+    baseURL: any = AXIOS_BASEURL,
+    url: any,
+    data: any,
 ) => {
   let headers = {};
   const token = await getAuthToken();
@@ -125,9 +136,9 @@ export const putRequest = async (
 };
 
 export const deleteRequest = async (
-  baseURL: any = AXIOS_BASEURL,
-  url: any,
-  data: any,
+    baseURL: any = AXIOS_BASEURL,
+    url: any,
+    data: any,
 ) => {
   let headers = {};
   const token = await getAuthToken();
@@ -148,8 +159,8 @@ export const deleteRequest = async (
 };
 
 export const getAllAppointmentList = (
-  allAppointmentListReq: any,
-  selectedChild: any,
+    allAppointmentListReq: any,
+    selectedChild: any,
 ) => {
   if (selectedChild !== null) {
     let allRdvListChildSelected: any = [];
@@ -158,18 +169,18 @@ export const getAllAppointmentList = (
         const appointment: any = allAppointmentListReq[i];
 
         if (
-          appointment.meetingType === 'PRESET' &&
-          (appointment.meetingStatus === 'CONFIRM' ||
-            appointment.meetingStatus === 'PARTIAL_CONFIRM')
+            appointment.meetingType === 'PRESET' &&
+            (appointment.meetingStatus === 'CONFIRM' ||
+                appointment.meetingStatus === 'PARTIAL_CONFIRM')
         ) {
           if (appointment?.creneauRdvs.length > 0) {
             for (let j = 0; j < appointment?.creneauRdvs.length; j++) {
               if (
-                appointment?.creneauRdvs[j]?.creneauRdvEnfantParents?.length > 0
+                  appointment?.creneauRdvs[j]?.creneauRdvEnfantParents?.length > 0
               ) {
                 if (
-                  appointment.creneauRdvs[j]?.creneauRdvEnfantParents[0]
-                    ?.enfantId === selectedChild.person.id
+                    appointment.creneauRdvs[j]?.creneauRdvEnfantParents[0]
+                        ?.enfantId === selectedChild.person.id
                 ) {
                   allRdvListChildSelected.push(appointment);
                 }
@@ -180,8 +191,8 @@ export const getAllAppointmentList = (
           if (appointment.creneauRdvs.length > 0) {
             if (appointment.creneauRdvs[0].creneauRdvEnfantParents.length > 0) {
               if (
-                appointment.creneauRdvs[0].creneauRdvEnfantParents[0]
-                  .enfantId === selectedChild.person.id
+                  appointment.creneauRdvs[0].creneauRdvEnfantParents[0]
+                      .enfantId === selectedChild.person.id
               ) {
                 allRdvListChildSelected.push(appointment);
               }
@@ -199,11 +210,11 @@ export const getAllAppointmentList = (
 };
 
 export const getMenuDayList = (
-  menuJourListPar: any,
-  selectedDay: any,
-  selectedWeek: any,
-  menuListPar: any,
-  menuPLatCanteenPar: any,
+    menuJourListPar: any,
+    selectedDay: any,
+    selectedWeek: any,
+    menuListPar: any,
+    menuPLatCanteenPar: any,
 ) => {
   const dayListMenuTab: any = [];
   let dayListMenu: any = {};
@@ -214,12 +225,12 @@ export const getMenuDayList = (
       const menuCantineJours = dayMenu.menuCantineJours;
       const menuList = menuListPar !== undefined ? menuListPar : [];
       const menuPLatCanteen =
-        menuPLatCanteenPar !== undefined ? menuPLatCanteenPar : [];
+          menuPLatCanteenPar !== undefined ? menuPLatCanteenPar : [];
 
       if (menuCantineJours.length > 0) {
         for (let j = 0; j < menuCantineJours.length; j++) {
           const menuCantine = menuList.filter(
-            (menu: any) => menu?.id === menuCantineJours[j]?.menuCantineId,
+              (menu: any) => menu?.id === menuCantineJours[j]?.menuCantineId,
           );
           if (menuCantine.length > 0) {
             for (let k = 0; k < menuCantine.length; k++) {
@@ -230,35 +241,35 @@ export const getMenuDayList = (
               };
 
               const platCantines =
-                menuCantine[k].menuPlatCantines !== undefined
-                  ? menuCantine[k]?.menuPlatCantines
-                  : [];
+                  menuCantine[k].menuPlatCantines !== undefined
+                      ? menuCantine[k]?.menuPlatCantines
+                      : [];
               if (platCantines.length > 0) {
                 let menuPlat = {};
                 for (let i = 0; i < platCantines.length; i++) {
                   for (let j = 0; j < menuPLatCanteen.length; j++) {
                     if (
-                      menuPLatCanteen[j]?.id ===
+                        menuPLatCanteen[j]?.id ===
                         platCantines[i]?.platCantineId &&
-                      menuPLatCanteen[j]?.typePlat === 'ENTREE'
+                        menuPLatCanteen[j]?.typePlat === 'ENTREE'
                     ) {
                       menuPlat = {
                         ...menuPlat,
                         entree: menuPLatCanteen[j]?.nom,
                       };
                     } else if (
-                      menuPLatCanteen[j]?.id ===
+                        menuPLatCanteen[j]?.id ===
                         platCantines[i]?.platCantineId &&
-                      menuPLatCanteen[j]?.typePlat === 'PLAT'
+                        menuPLatCanteen[j]?.typePlat === 'PLAT'
                     ) {
                       menuPlat = {
                         ...menuPlat,
                         plat: menuPLatCanteen[j]?.nom,
                       };
                     } else if (
-                      menuPLatCanteen[j]?.id ===
+                        menuPLatCanteen[j]?.id ===
                         platCantines[i]?.platCantineId &&
-                      menuPLatCanteen[j]?.typePlat === 'DESSERT'
+                        menuPLatCanteen[j]?.typePlat === 'DESSERT'
                     ) {
                       menuPlat = {
                         ...menuPlat,
@@ -325,15 +336,15 @@ export const getAllDiscussionTreadList = async (user: any, selectedChild: any) =
         );
 
         if (
-          discussionTreadMessageListReq !== undefined &&
-          discussionTreadMessageListReq !== '' &&
-          discussionTreadMessageListReq !== null &&
-          discussionTreadMessageListReq.length > 0
+            discussionTreadMessageListReq !== undefined &&
+            discussionTreadMessageListReq !== '' &&
+            discussionTreadMessageListReq !== null &&
+            discussionTreadMessageListReq.length > 0
         ) {
           const discussionTreadMessageList = discussionTreadMessageListReq.sort(
-            function (a: any, b: any) {
-              return a.theDate - b.theDate;
-            },
+              function (a: any, b: any) {
+                return a.theDate - b.theDate;
+              },
           );
           discussionTreadMessageList.reverse();
 
@@ -357,5 +368,3 @@ export const getAllDiscussionTreadList = async (user: any, selectedChild: any) =
 
   return discussionListReq.reverse();
 };
-
-

@@ -260,7 +260,7 @@ export const NOTIFICATION_MESSAGE_FR: any = [
       tag: 'documents',
       action: 'delete',
       value: 'Document scolaire supprimé'
-  }
+  },
 ];
 
 export const NOTIFICATION_NAGIVATION: any = [

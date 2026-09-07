@@ -32,7 +32,9 @@ export type TBookItemProps = {
   bookDetail: boolean;
   setBookDetail: Dispatch<SetStateAction<boolean>>;
   donor: string;
+  borrowStatusType?: boolean,
   setDonor: Dispatch<SetStateAction<any>>;
   setDataBook: Dispatch<SetStateAction<any>>;
+  setBookCategory: Dispatch<SetStateAction<any>>;
   handleBorrowBook(data: any, setBorrowLoadingItem: (value: (((prevState: boolean) => boolean) | boolean)) => void): void;
 };

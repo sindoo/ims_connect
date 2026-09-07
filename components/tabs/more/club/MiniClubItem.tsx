@@ -25,12 +25,16 @@ export default function MiniClubItem({data}: TMiniClubItemProps) {
   const {selectedChild} = useSelector((state: any) => state.child);
   const dispatch = useDispatch();
   const router = useRouter();
+  const [dateSubscription, setDateSubscription] = useState(false);
 
   useEffect(() => {
     const fetchData = () => {
       if(selectedChild !== null) {
         const status = MiniClubService.checkRegistration(selectedChild.person.id, data);
         setRegisteredStatus(status);
+        const today = new Date();
+        const dateSubscriptionStatus = data.dateFin > today.getTime();
+        setDateSubscription(dateSubscriptionStatus);
       }
     };
     fetchData();
@@ -39,18 +43,13 @@ export default function MiniClubItem({data}: TMiniClubItemProps) {
     <Card borderRaduis={6} marginBottom={15}>
       <Pressable
         onPress={() => {
-          dispatch(setMiniClubDetailsInRedux(data));
           router.push({
             pathname: '/pages/more/club',
             params: {
+              miniClubId: data.id,
               registrationStatus: registeredStatus ? '1' : '0',
             }
           });
-
-          /*navigation.navigate(ROUTES.MINI_CLUB_DETAILS, {
-            data: data,
-            registrationStatus: registeredStatus,
-          })*/
         }}>
         <View style={styles.itemContent}>
           {data.uriPublicite !== '' && data.uriPublicite !== null && (
@@ -78,23 +77,21 @@ export default function MiniClubItem({data}: TMiniClubItemProps) {
               } as StyleSheet}>
                 {registeredStatus ? (
                     <>
-                      {unsubscribeDate <= data.dateDebut ? (
+                      {dateSubscription && (
                           <View style={styles.unsubscribe}>
                             <Text style={{color: COLORS.white}}>{t('more.unsubscribe')}</Text>
                           </View>
-                      ) : (
-                          <View style={styles.unsubscribeAvoid}>
-                            <Text style={{color: COLORS.grayLight}}>{t('more.unsubscribe')}</Text>
-                          </View>
-                      )}
+                      ) }
+
                     </>
                 ) :  (
                     <>
-                      {today <= data.dateFin && (
+                      {dateSubscription && (
                           <View style={styles.registered}>
                             <Text style={{color: COLORS.white}}>{t('more.registered')}</Text>
                           </View>
-                      )}
+                      ) }
+
                     </>
                 )}
             </View>
@@ -138,19 +135,17 @@ const styles = StyleSheet.create({
   },
   registered: {
     flexDirection: 'row',
-    fontSize: 12,
+    fontSize: 11,
     borderRadius: 5,
     paddingHorizontal: 8,
-    paddingTop:2,
     height: 21,
     backgroundColor: COLORS.secondary,
   },
   unsubscribe: {
     flexDirection: 'row',
-    fontSize: 12,
+    fontSize: 11,
     borderRadius: 5,
     paddingHorizontal: 8,
-    paddingTop:2,
     height: 21,
     backgroundColor: COLORS.redIms,
   },

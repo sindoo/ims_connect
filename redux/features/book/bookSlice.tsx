@@ -2,6 +2,7 @@ import {createSlice} from '@reduxjs/toolkit';
 
 const initialState = {
   childBorrowedBooksList: [],
+  childHistoryBooksList: [],
 };
 
 const bookSlice = createSlice({
@@ -10,6 +11,9 @@ const bookSlice = createSlice({
   reducers: {
     setChildBorrowedBooksList: (state, action) => {
       state.childBorrowedBooksList = action.payload;
+    },
+    setChildHistoryBooksList: (state, action) => {
+      state.childHistoryBooksList = action.payload;
     },
     /*updateChildBorrowedBookList: (state, action) => {
             state.childBorrowedBooksList = action.payload;
@@ -20,7 +24,7 @@ const bookSlice = createSlice({
   },
 });
 
-export const {setChildBorrowedBooksList, initializeBorrowedBookValue} =
-  bookSlice.actions;
+export const {
+  setChildBorrowedBooksList, setChildHistoryBooksList, initializeBorrowedBookValue} = bookSlice.actions;
 
 export default bookSlice.reducer;

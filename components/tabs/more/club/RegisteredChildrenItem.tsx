@@ -3,25 +3,25 @@ import {Image, StyleSheet, Text, View} from 'react-native';
 import {BASEURL_IMG} from "../../../../api/appUrl";
 import {COLORS, IMAGES} from "../../../../constants";
 
-export default function RegisteredChildrenItem({data}: any) {
+function RegisteredChildrenItem({data}: any) {
   return (
-    <View style={styles.itemRegisteredContainer}>
-      <Image
-        source={
-          data.person.photo !== null && data.person.photo !== ''
-            ? {uri: `${BASEURL_IMG}/${data.person.photo}`}
-            : IMAGES.avatar
-        }
-        resizeMode="cover"
-        style={styles.avatarImage}
-      />
-      <View style={styles.textContainer}>
-        <Text style={{color: COLORS.gray, fontWeight: '600'} as StyleSheet}>
-          {data?.person.nom} {data?.person.prenom}
-        </Text>
-        <Text style={{color: COLORS.gray}}>{data?.eleves[0].classe.nom}</Text>
+      <View style={styles.itemRegisteredContainer}>
+        <Image
+            source={
+              data.person.photo !== null && data.person.photo !== ''
+                  ? {uri: `${BASEURL_IMG}/${data.person.photo}`}
+                  : IMAGES.avatar
+            }
+            resizeMode="cover"
+            style={styles.avatarImage}
+        />
+        <View style={styles.textContainer}>
+          <Text style={{color: COLORS.gray, fontWeight: '600'} as StyleSheet}>
+            {data?.person.nom} {data?.person.prenom}
+          </Text>
+          <Text style={{color: COLORS.gray}}>{data?.eleves[0].classe.nom}</Text>
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -45,3 +45,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export default React.memo(RegisteredChildrenItem);

@@ -21,7 +21,7 @@ class ConversationService {
     static getChildDiscussionList = async (selectedChildID: number, classId: number, data: any) => {
 
         let discussionList: any = [];
-        const discussionListReq: any = await putRequest(BASEURL_MSG_NOTIF, `/ws/chat/spaces/${classId}/${selectedChildID}`, data);
+        const discussionListReq: any = await putRequest('', `/ws/chat/spaces/${classId}/${selectedChildID}`, data);
         if (discussionListReq !== undefined && discussionListReq !== '' && discussionListReq !== null) {
             discussionList = discussionListReq.sort(function (a: any, b: any) {
                 return a[0]?.space.theDate - b[0]?.space.theDate;
@@ -32,7 +32,7 @@ class ConversationService {
 
     static getLastMessageOfDiscussion = async (spaceId: number, data: any) => {
         let lastMessage: any = {};
-        const lastMessageReq: any = await putRequest(BASEURL_MSG_NOTIF, `/ws/chat/messages/space/${spaceId}`, data);
+        const lastMessageReq: any = await putRequest('', `/ws/chat/messages/space/${spaceId}`, data);
         if (
             lastMessageReq !== undefined &&
             lastMessageReq !== '' &&
@@ -46,7 +46,7 @@ class ConversationService {
     static getMessageListOfDiscussion = async (discussionId: number, dataToSend: any) => {
         let discussionTreadMessageList: any = [];
         const discussionTreadMessageListReq: any = await putRequest(
-            BASEURL_MSG_NOTIF,
+            '',
             `/ws/chat/messages/space/${discussionId}`,
             dataToSend
         );
@@ -125,7 +125,7 @@ class ConversationService {
                 enfantNom: `${selectedChild?.person?.nom} ${selectedChild?.person?.prenom}`,
             }
 
-            await deleteRequest(BASEURL_MSG_NOTIF, `/ws/chat/space/${discussionTread?.id}`, dataToSend);
+            await deleteRequest('', `/ws/chat/space/${discussionTread?.id}`, dataToSend);
             let filteredMessages = discussionTreadList.filter((discussion:any) => discussion.id !== discussionTread.id);
             filteredMessages = filteredMessages.sort(
                 function (a: any, b: any) {
@@ -152,7 +152,7 @@ class ConversationService {
                 }
 
                 const discussionTreadMessageListReq: any = await putRequest(
-                    BASEURL_MSG_NOTIF,
+                    '',
                     `/ws/chat/messages/space/${discussionThreadSelect.id}`,
                     dataToSend
                 );

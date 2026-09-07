@@ -17,7 +17,7 @@ import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
 import {Image} from "expo-image";
 
 
-function BookDetails({data, bookDetail, setBookDetail, donor}: any) {
+function BookDetails({data, bookDetail, setBookDetail, donor, bookCategory}: any) {
   const {t} = useTranslation();
 
   return (
@@ -86,7 +86,7 @@ function BookDetails({data, bookDetail, setBookDetail, donor}: any) {
                         fontSize: 12,
                         color: COLORS.gray,
                       } as StyleSheet}>
-                      {t('more.book_donated_by')} : {donor}
+                      {t('more.category_name')} : {bookCategory}
                     </Text>
                   </View>
                 </View>

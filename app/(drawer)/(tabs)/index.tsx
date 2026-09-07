@@ -96,7 +96,7 @@ const useHomeData = (selectedChild, children, userToken, dispatch) => {
             const status = await MenuYearService.getStatusMenuYear();
             setStatusMenuApp(status?.statut);
         } catch (error) {
-            console.error('Erreur menu:', error);
+            console.log('Erreur menu:', error);
         } finally {
             setMenuYearLoading(false);
         }
@@ -154,7 +154,7 @@ const useHomeData = (selectedChild, children, userToken, dispatch) => {
             }
         }
         catch (error) {
-            console.error('Erreur fetchData:', error);
+            console.log('Erreur fetchData:', error);
             if (userToken) {
                 checkTokenExpired(userToken, dispatch);
             }

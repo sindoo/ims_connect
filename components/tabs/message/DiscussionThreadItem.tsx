@@ -7,6 +7,7 @@ import {BASEURL_IMG} from "../../../api/appUrl";
 import {COLORS, IMAGES} from "../../../constants";
 import {Image} from "expo-image";
 import LetterAvatar from "../../ui/LetterAvatar";
+import {router} from "expo-router";
 
 
 const DiscussionThreadItem = memo(function DiscussionThreadItem({navigation, discussionThread}: any) {
@@ -40,9 +41,12 @@ const DiscussionThreadItem = memo(function DiscussionThreadItem({navigation, dis
       <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => {
-            /*navigation.navigate(ROUTES.MESSAGE_DETAILS, {
-              discussionThread: discussionThread,
-            })*/
+            router.push({
+              pathname: '/pages/message',
+              params: {
+                discussionThreadId: JSON.stringify(discussionThread?.id),
+              }
+            });
           }}>
         <View style={styles.messageItemContainer}>
           {discussionThread?.initiatorRole === 'PARENT' ? (

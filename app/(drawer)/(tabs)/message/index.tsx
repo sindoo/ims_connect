@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     StyleSheet,
     View,
@@ -6,15 +6,16 @@ import {
     TextInput,
     Keyboard,
     TouchableOpacity,
-    ScrollView,
     Text,
     AppState,
-    FlatList
+    FlatList,
 } from 'react-native';
+import {Client} from '@stomp/stompjs';
 import TextEncodingPolyfill from 'text-encoding';
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import ConversationService from "../../../../services/ConversationService";
+import {MessageCenterService} from "../../../../services/MessageCenterService";
 import {setDiscussionTreadList} from "../../../../redux/features/message/messageSlice";
 import {
     checkAppState,
@@ -25,103 +26,98 @@ import {COLORS} from "../../../../constants";
 import {MaterialIcons} from "@expo/vector-icons";
 import DiscussionThreadItem from "../../../../components/tabs/message/DiscussionThreadItem";
 
-
+// Polyfill requis par @stomp/stompjs en React Native (encodage des trames binaires)
 Object.assign(global, {
     TextEncoder: TextEncodingPolyfill.TextEncoder,
     TextDecoder: TextEncodingPolyfill.TextDecoder,
 });
 
+const inputProps = {enterKeyHint: 'search' as const};
+
 function MessageCenter({navigation}: {navigation: any}) {
-    const inputProps = {enterKeyHint: 'search'};
     const {t} = useTranslation();
     const {discussionTreadList} = useSelector((state: any) => state.messageCenter);
     const {selectedChild} = useSelector((state: any) => state.child);
     const {user, userToken} = useSelector((state: any) => state.user);
-    const [userDiscussionList, setUserDiscussionList] = useState([]);
+
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    // La recherche n'est appliquée qu'à la validation (onSubmitEditing), comme avant.
+    const [committedSearch, setCommittedSearch] = useState('');
+    const [, setCount] = useState(0);
+
     const dispatch = useDispatch();
-    const [count, setCount] = useState(0);
     const appState = useRef(AppState.currentState);
+    const stompClientRef = useRef<Client | null>(null);
 
-    const handleSearchDiscussionTread = () => {
-        if (search !== '') {
-            setLoading(true);
-            let filterDiscussionList = discussionTreadList.filter(function (
-                item: any,
-            ) {
-                let itemLowerCase: any = item.initiatorNom;
-                if(itemLowerCase.toLowerCase().includes(search.toLowerCase())){
-                    return true;
-                }
-                else {
-                    itemLowerCase = item.objet;
-                    return itemLowerCase.toLowerCase().includes(search.toLowerCase());
-                }
-
-            });
-            setUserDiscussionList(filterDiscussionList);
-            setLoading(false);
-        } else {
-            setUserDiscussionList(discussionTreadList);
+    // Liste réellement affichée : dérivée de la liste Redux + du terme validé.
+    const userDiscussionList = useMemo(() => {
+        if (!committedSearch) {
+            return discussionTreadList;
         }
-    };
+        const term = committedSearch.toLowerCase();
+        return discussionTreadList.filter((item: any) => {
+            const initiator = (item?.initiatorNom ?? '').toLowerCase();
+            if (initiator.includes(term)) {
+                return true;
+            }
+            const objet = (item?.objet ?? '').toLowerCase();
+            return objet.includes(term);
+        });
+    }, [discussionTreadList, committedSearch]);
 
-    const handleClearSearch = () => {
+    const handleSearchDiscussionTread = useCallback(() => {
+        setCommittedSearch(search);
+    }, [search]);
+
+    const handleClearSearch = useCallback(() => {
         setSearch('');
-        setUserDiscussionList(discussionTreadList);
-    };
+        setCommittedSearch('');
+    }, []);
 
+    const buildDataToSend = useCallback(() => ({
+        userId: user?.id,
+        uuid: user?.uuid,
+        nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
+        personId: user?.userDetails?.personDetails?.person.id,
+        role: user?.role,
+    }), [user]);
 
+    // Chargement initial (REST) de la liste des discussions de l'enfant sélectionné.
     useEffect(() => {
-        const fetchData = () => {
-            //console.log('update');
-            setUserDiscussionList(discussionTreadList);
-        };
-        fetchData();
-    }, [discussionTreadList]);
+        let isActive = true;
 
-
-    useEffect(() => {
         const fetchData = async () => {
-            if(selectedChild !== null) {
+            if (selectedChild !== null) {
                 setLoading(true);
                 const selectedChildId = selectedChild.id;
                 const classId = selectedChild?.eleves[0]?.classe?.id;
-                const data = {
-                    userId: user.id,
-                    uuid: user.uuid,
-                    nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
-                    personId: user?.userDetails?.personDetails?.person.id,
-                    role: user.role,
-                }
+                const data = buildDataToSend();
+
                 const discussionListReq = await ConversationService.getChildDiscussionList(selectedChildId, classId, data);
-                let discussionListFormatted: any = [];
-                for(let i = 0; i < discussionListReq.length; i++) {
-                    const lastMessage = await ConversationService.getLastMessageOfDiscussion(discussionListReq[i]?.space.id, data);
-                    const discussion = {
-                        ...discussionListReq[i]?.space,
-                        lastMessage: lastMessage.length > 0 ? lastMessage[0].message : '',
-                        lastMessageDate: lastMessage.length > 0 ? lastMessage[0].theDate : 0,
-                        className: selectedChild?.eleves[0]?.classe?.nom,
-                    };
-                    discussionListFormatted.push(discussion);
-                }
 
-                discussionListFormatted = discussionListFormatted.sort(function (a: any, b: any) {
-                    return a?.lastUpdate - b?.lastUpdate;
-                });
+                const discussionListFormatted = await Promise.all(
+                    discussionListReq.map(async (thread: any) => {
+                        const lastMessage = await ConversationService.getLastMessageOfDiscussion(thread?.space.id, data);
+                        return {
+                            ...thread?.space,
+                            lastMessage: lastMessage.length > 0 ? lastMessage[0].message : '',
+                            lastMessageDate: lastMessage.length > 0 ? lastMessage[0].theDate : 0,
+                            className: selectedChild?.eleves[0]?.classe?.nom,
+                        };
+                    }),
+                );
 
+                discussionListFormatted.sort((a: any, b: any) => a?.lastUpdate - b?.lastUpdate);
                 discussionListFormatted.reverse();
-                dispatch(setDiscussionTreadList(discussionListFormatted));
-                setUserDiscussionList(discussionListFormatted);
-                setLoading(false);
-            }
-            setLoading(false);
 
-            if(user !== null) {
-                // GET ALL NOTIFICATIONS AND DELETE OLD ONE
-                //await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
+                if (isActive) {
+                    dispatch(setDiscussionTreadList(discussionListFormatted));
+                }
+            }
+
+            if (isActive) {
+                setLoading(false);
             }
 
             checkTokenExpired(userToken, dispatch);
@@ -129,17 +125,41 @@ function MessageCenter({navigation}: {navigation: any}) {
 
         fetchData().catch(error => {
             console.log(JSON.stringify(error));
-            setLoading(false);
+            if (isActive) {
+                setLoading(false);
+            }
             checkTokenExpired(userToken, dispatch);
         });
 
         const subscription = checkAppState(appState, setCount);
+
         return () => {
+            isActive = false;
             subscription.remove();
         };
+    }, [selectedChild, buildDataToSend, dispatch, userToken]);
 
-    }, [selectedChild]);
+    // Connexion WebSocket temps réel : reçoit les mises à jour des espaces de
+    // discussion et les répercute dans Redux. Le client est désabonné puis
+    // désactivé dès que l'utilisateur quitte l'écran (ou change d'enfant).
+    useEffect(() => {
+        if (selectedChild === null || !user?.uuid) {
+            return;
+        }
 
+        const {createStompClient, onConnect, disconnect} = MessageCenterService();
+        const client = createStompClient();
+        stompClientRef.current = client;
+
+        onConnect(client, buildDataToSend(), user, (updatedDiscussionList) => {
+            dispatch(setDiscussionTreadList(updatedDiscussionList));
+        });
+
+        return () => {
+            disconnect(stompClientRef.current);
+            stompClientRef.current = null;
+        };
+    }, [selectedChild, user, buildDataToSend, dispatch]);
 
     if (loading) {
         return <Loading />;
@@ -157,11 +177,11 @@ function MessageCenter({navigation}: {navigation: any}) {
                             placeholder={t('message.search')}
                             placeholderTextColor={COLORS.gray}
                             value={search}
-                            onChangeText={(text: any) => setSearch(text)}
-                            onSubmitEditing={() => handleSearchDiscussionTread()}
+                            onChangeText={setSearch}
+                            onSubmitEditing={handleSearchDiscussionTread}
                             {...inputProps}
                         />
-                        <TouchableOpacity onPress={() => handleClearSearch()}>
+                        <TouchableOpacity onPress={handleClearSearch}>
                             <MaterialIcons name="close" size={18} color={COLORS.gray} />
                         </TouchableOpacity>
                     </View>
@@ -179,34 +199,28 @@ function MessageCenter({navigation}: {navigation: any}) {
                 </View>
 
                 <View style={styles.messageListContainer}>
-                    {(userDiscussionList.length === 0 || false) && (
-                        <View style={{flex:1}}>
-                            <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
+                    {userDiscussionList.length === 0 && (
+                        <View style={{flex: 1}}>
+                            <Text style={{flex: 1, textAlign: 'center'} as any}>
                                 {t('message.empty_message')}
                             </Text>
                         </View>
                     )}
 
                     {userDiscussionList.length > 0 && (
-                        <>
-                            <FlatList
-                                style={{paddingLeft: 15, paddingRight: 15}}
-                                data={userDiscussionList}
-                                keyExtractor={(userDiscussion:any) => userDiscussion.id.toString()}
-                                onEndReachedThreshold={0}
-                                renderItem={({ item }) => {
-                                    return (
-                                        <DiscussionThreadItem
-                                            key={`user-discussion${item.id}`}
-                                            navigation={navigation}
-                                            discussionThread={item}
-                                        />
-                                    )
-                                }}
-                            />
-                        </>
+                        <FlatList
+                            style={{paddingLeft: 15, paddingRight: 15}}
+                            data={userDiscussionList}
+                            keyExtractor={(userDiscussion: any) => userDiscussion.id.toString()}
+                            onEndReachedThreshold={0}
+                            renderItem={({item}) => (
+                                <DiscussionThreadItem
+                                    navigation={navigation}
+                                    discussionThread={item}
+                                />
+                            )}
+                        />
                     )}
-
                 </View>
             </View>
         </TouchableWithoutFeedback>
@@ -249,7 +263,6 @@ const styles = StyleSheet.create({
         marginRight: 15,
         alignItems: 'center',
         justifyContent: 'center',
-        //backgroundColor:'red'
     },
     editIcon: {
         width: 45,
@@ -259,10 +272,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderRadius: 80,
     },
-
     messageListContainer: {
         flex: 4,
-        //padding: 15,
         paddingBottom: 15,
         paddingTop: 30,
     },
@@ -317,7 +328,6 @@ const styles = StyleSheet.create({
         paddingTop: 5,
         textAlign: 'right',
     },
-
     newMessageStatus: {
         width: 13,
         height: 13,

@@ -149,19 +149,34 @@ const AppNav = () => {
                             />
 
                             <Stack.Screen
-                            name="pages/notification/index"
-                            options={{
-                                header: () => {
-                                    return (
-                                        <CustomHeaderWithButton
-                                            handleBackRoute={handleBackRoute}
-                                            title={t('notification.title')}
-                                            backRouteName="(drawer)/(tabs)"
-                                        />
-                                    ) as any;
-                                },
-                            }}
-                        />
+                                name="pages/notification/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('notification.title')}
+                                                backRouteName="(drawer)/(tabs)"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+
+                            <Stack.Screen
+                                name="pages/message/index"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('conversationMessage.title')}
+                                                backRouteName="(drawer)/(tabs)/message"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
                         </Stack.Protected>
                     </Stack>
                 </GestureHandlerRootView>

@@ -13,6 +13,7 @@ import {COLORS, IMAGES} from "../../../../constants";
 import {Image} from "expo-image";
 import {MaterialIcons} from "@expo/vector-icons";
 import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
+import Loading from "../../../ui/Loading";
 
 function ImageItem(props: any) {
   const {
@@ -110,7 +111,7 @@ function ImageItem(props: any) {
                   </TouchableWithoutFeedback>
                 </View>
                 <View style={styles.modalContent}>
-                  {loading && <Loding />}
+                  {loading && <Loading />}
                   {childPicture !== null && (
                     <>
                       <Image

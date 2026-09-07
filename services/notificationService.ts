@@ -334,7 +334,25 @@ const handleOtherNotification = async (
 
     // Navigation vers la route correspondante
     setTimeout(() => {
-        router.push(routePath);
+        if(tag === 'miniclubs') {
+            const data = {
+                ...notificationData,
+                message: JSON.parse(notificationData?.message)
+            }
+
+            if(data?.message?.classeMiniClubs[0]?.miniClubId !== undefined && data?.message?.classeMiniClubs[0]?.miniClubId !== null) {
+                router.push({
+                    pathname: '/pages/more/club',
+                    params: {
+                        miniClubId: data?.message?.classeMiniClubs[0]?.miniClubId,
+                        registrationStatus: 0
+                    }
+                });
+            }
+        }
+        else {
+            router.push(routePath);
+        }
     }, 400);
 };
 
@@ -407,7 +425,8 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
                 newNotificationData,
                 routePath
             );
-        } else {
+        }
+        else {
             await handleOtherNotification(
                 notificationDetails,
                 notificationDetails,
@@ -425,7 +444,8 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
     catch (error) {
         console.log('❌ Erreur navigation:', error);
         pendingNotificationData = data;
-    } finally {
+    }
+    finally {
         isNavigating = false;
     }
 }

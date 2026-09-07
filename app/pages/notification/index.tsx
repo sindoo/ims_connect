@@ -43,6 +43,7 @@ import {updateHeaderNotificationEveryWhere} from "../../../services/GeneralServi
 import AppointmentService from "../../../services/AppointmentService";
 import {setAppointmentDetailsInRedux} from "../../../redux/features/appointment/appointmentSlice";
 import {router} from "expo-router";
+import {t} from "i18next";
 
 // Types
 interface Notification {
@@ -124,9 +125,13 @@ const FilterNotificationType = React.memo(({
     setFilterType: (type: string) => void;
 }) => {
     const filters = useMemo(() => [
-        { key: 'rdv', label: 'Rendez-vous' },
-        { key: 'miniclubs', label: 'Mini-clubs' },
-        { key: 'messages', label: 'Message' }
+        { key: 'rdv', label: t('notification.rdv') },
+        { key: 'miniclubs', label: t('notification.mini_club') },
+        { key: 'message_center', label: t('notification.message') },
+        { key: 'imsday', label: t('notification.imsday') },
+        { key: 'alertmessage', label: t('notification.alertmessage') },
+        { key: 'sondage', label: t('notification.survey') },
+        { key: 'documents', label: t('notification.school_document') },
     ], []);
 
     return (
@@ -487,7 +492,7 @@ const Notification = () => {
                                             color: filterBoxShow ? COLORS.white : COLORS.blackLight,
                                             fontSize: 12
                                         }}>
-                                            Filtrer par
+                                            {t('notification.filter_by')}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>

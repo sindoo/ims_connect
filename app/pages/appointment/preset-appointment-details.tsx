@@ -86,6 +86,8 @@ function PresetAppointmentDetails({
             };
 
             setStatusButtonSubmit(true);
+            console.log(JSON.stringify(dataToSend));
+
             request(
                 'PUT',
                 '',
@@ -113,7 +115,7 @@ function PresetAppointmentDetails({
                 })
                 .catch(error => {
                     // Error message
-                    console.log(error);
+                    console.log(JSON.stringify(error));
                     setStatusButtonSubmit(false);
                     snackbarShowMessage(t('snackBar.sb_error'));
                 });
@@ -183,7 +185,7 @@ function PresetAppointmentDetails({
                     .catch(error => {
                         // Error message
                         //const result = JSON.parse(error.config.data);
-                        console.log(error);
+                        console.log(JSON.stringify(error));
                         setStatusButtonCancel(false);
                         snackbarShowMessage(t('snackBar.sb_error'));
                     });

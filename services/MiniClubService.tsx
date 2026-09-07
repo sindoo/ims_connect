@@ -4,6 +4,13 @@ import {getTime} from "date-fns";
 import {CONSTANT} from "../constants";
 
 class MiniClubService {
+  static getMiniClubById = async (miniClubId: string | string[], signal?: AbortSignal) => {
+    return await getRequest(
+        '',
+        `/extra/miniclubs/${miniClubId}`,
+        signal,
+    );
+  }
   static getChildClassMiniClubData = async (selectedChild: any) => {
     const miniClubListRequest: any = await getRequest('', '/extra/miniclubs');
     let miniClubList: any =
@@ -36,7 +43,7 @@ class MiniClubService {
         const registered = miniClubList[i]?.inscritMiniClubs;
         if (registered.length > 0) {
           for (let j = 0; j < registered.length; j++) {
-            registeredListChildId.push(registered[j].enfantId);
+            registeredListChildId.push(registered[j]?.enfantId);
           }
         }
       }
@@ -78,6 +85,8 @@ class MiniClubService {
       enfantId: selectedChildId,
       common: CONSTANT.common,
     };
+
+    //console.log(JSON.stringify(dataToSend))
     return await postRequest(
         '',
         `/extra/miniclubs/${data.id}/inscription`,

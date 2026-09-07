@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useState, useMemo} from 'react';
+import {FlatList, StyleSheet, Text, View} from 'react-native';
 import {useTranslation} from "react-i18next";
 import {useSelector} from "react-redux";
 import {globalStyles} from "../../../../../style/Global";
@@ -7,51 +7,74 @@ import {COLORS} from "../../../../../constants";
 import BookItem from "../../../../../components/tabs/more/exchangelibray/BookItem";
 import BookDetails from "../../../../../components/tabs/more/exchangelibray/BookDetails";
 
-
-function Borrowing(props) {
+function Borrowing() {
     const {t} = useTranslation();
     const {childBorrowedBooksList} = useSelector((state: any) => state.book);
+
     const [donor, setDonor] = useState<any>('');
     const [dataBook, setDataBook] = useState<any>(null);
     const [bookDetail, setBookDetail] = useState(false);
+    const [bookCategory, setBookCategory] = useState<any>('');
+
+    // Memoized empty state
+    const isEmpty = useMemo(() => childBorrowedBooksList.length === 0, [childBorrowedBooksList.length]);
+
+    // Render book item
+    const renderBookItem = useCallback(({item}: {item: any}) => (
+        <BookItem
+            key={`borrowed-book-${item.id}`}
+            data={item}
+            bookStatus={false}
+            borrowChildStatus={true}
+            comeBackDate={true}
+            handleBorrowBook={() => {}}
+            donor={donor}
+            borrowStatusType={true}
+            setDonor={setDonor}
+            bookDetail={bookDetail}
+            setBookDetail={setBookDetail}
+            setDataBook={setDataBook}
+            setBookCategory={setBookCategory}/>
+    ), [donor, bookDetail]);
+
+    // Key extractor
+    const keyExtractor = useCallback((item: any) => `borrowed-book-${item.id}`, []);
+
+    // Log borrowed books (dev only)
+    useEffect(() => {
+        if (__DEV__) {
+            //console.log('Borrowed books:', JSON.stringify(childBorrowedBooksList));
+        }
+    }, [childBorrowedBooksList]);
 
     return (
         <View style={globalStyles.container}>
-            <ScrollView style={styles.listContainer}>
-                {(childBorrowedBooksList.length === 0 || false) && (
-                    <View>
-                        <Text style={{flex: 1, textAlign: 'center', color: COLORS.gray} as StyleSheet}>
+            <FlatList
+                style={styles.listContainer}
+                data={childBorrowedBooksList}
+                keyExtractor={keyExtractor}
+                renderItem={renderBookItem}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>
                             {t('more.empty_borrow_library')}
                         </Text>
                     </View>
-                )}
+                }
+                contentContainerStyle={childBorrowedBooksList.length === 0 && styles.emptyContentContainer}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={true}
+            />
 
-                {childBorrowedBooksList.length > 0 &&
-                    childBorrowedBooksList.map((book: any) => {
-                        return (
-                            <BookItem
-                                key={book.id}
-                                data={book}
-                                bookStatus={false}
-                                borrowChildStatus={true}
-                                comeBackDate={true}
-                                handleBorrowBook={() => {}}
-                                donor={donor}
-                                setDonor={setDonor}
-                                bookDetail={bookDetail}
-                                setBookDetail={setBookDetail}
-                                setDataBook={setDataBook}
-                            />
-                        );
-                    })}
-            </ScrollView>
-
-            {dataBook !== null && (
+            {dataBook && (
                 <BookDetails
                     data={dataBook}
                     bookDetail={bookDetail}
                     setBookDetail={setBookDetail}
                     donor={donor}
+                    bookCategory={bookCategory}
                 />
             )}
         </View>
@@ -65,5 +88,19 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 10,
         paddingTop: 20,
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 50,
+    },
+    emptyText: {
+        textAlign: 'center',
+        color: COLORS.gray,
+    },
+    emptyContentContainer: {
+        flexGrow: 1,
+        justifyContent: 'center',
     },
 });

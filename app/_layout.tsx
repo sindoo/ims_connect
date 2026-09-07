@@ -35,7 +35,7 @@ try {
                     trigger: null,
                 });
             } catch (e) {
-                console.error('Erreur affichage notification background:', e);
+                console.log('Erreur affichage notification background:', e);
             }
         }
     });
@@ -94,7 +94,7 @@ const RootLayout = () => {
                     console.log('✅ Notifications initialisées');
                 }
             } catch (error) {
-                console.error('❌ Erreur init notifications:', error);
+                console.log('❌ Erreur init notifications:', error);
             }
         };
 
