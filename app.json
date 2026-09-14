@@ -39,7 +39,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar",
       "expo-localization",
       [
         "@react-native-firebase/app",
@@ -73,7 +72,17 @@
           "icon": "./assets/android-icon-background.png",
           "color": "#ffffff"
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "./lib/withFcmNotificationMetaFix.js",
+      "expo-image"
     ],
     "extra": {
       "eas": {

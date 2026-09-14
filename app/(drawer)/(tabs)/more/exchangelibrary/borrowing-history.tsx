@@ -17,7 +17,7 @@ const BorrowingHistory = () => {
     const [bookCategory, setBookCategory] = useState<any>('');
 
     // Memoized empty state
-    const isEmpty = useMemo(() => childHistoryBooksList.length === 0, [childHistoryBooksList.length]);
+    //const isEmpty = useMemo(() => childHistoryBooksList.length === 0, [childHistoryBooksList.length]);
 
     // Render book item
     const renderBookItem = useCallback(({item}: {item: any}) => (

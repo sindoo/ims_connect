@@ -124,7 +124,7 @@ const MoreLayout = () => {
                 }}
             />
             <Stack.Screen
-                name="survey"
+                name="survey/index"
                 options={{
                     animate: false,
                     header: () => {

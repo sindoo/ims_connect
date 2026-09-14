@@ -10,7 +10,9 @@ import {BASEURL_IMG} from "../../../api/appUrl";
 import {changeAppLanguage} from "../../../redux/features/language/languageSlice";
 import LanguageComponent from "./LanguageComponent";
 import {Badge} from "react-native-paper";
-import { useNavigation, DrawerActions } from 'expo-router/react-navigation';
+//import { useNavigation, DrawerActions } from 'expo-router/react-navigation';
+import { useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import NotificationHeader from "./NotificationHeader";
 import {router} from "expo-router";
 

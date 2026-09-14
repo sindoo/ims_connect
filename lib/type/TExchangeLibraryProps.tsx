@@ -1,4 +1,4 @@
-import {NavigationProp} from 'expo-router/react-navigation';
+import {NavigationProp} from '@react-navigation/native';
 import {Dispatch, SetStateAction} from 'react';
 
 export type TExchangeLibraryProps = {

@@ -1,7 +1,8 @@
 import React from 'react';
 import {StyleSheet, Text, Pressable, View} from 'react-native';
 import {useTranslation} from "react-i18next";
-import {useNavigation} from "expo-router/react-navigation";
+//import {useNavigation} from "expo-router/react-navigation";
+import {useNavigation} from '@react-navigation/native';
 import {COLORS, ROUTES} from "../../../constants";
 import {globalStyles} from "../../../style/Global";
 import {format} from "date-fns";

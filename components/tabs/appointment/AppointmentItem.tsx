@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {StyleSheet, Text, Pressable, View, Image} from 'react-native';
 import {useTranslation} from "react-i18next";
-import {useNavigation} from "expo-router/react-navigation";
+import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from "react-redux";
 import {format, getHours, getMinutes, toDate} from "date-fns";
 import {toZonedTime} from "date-fns-tz";
@@ -12,7 +12,6 @@ import {enUS, fr} from "date-fns/locale";
 import {MaterialIcons} from "@expo/vector-icons";
 import Card from "../../ui/Card";
 import {useRouter} from "expo-router";
-import {changeAppLanguage} from "../../../redux/features/language/languageSlice";
 import {
   setAppointmentDetailsInRedux
 } from "../../../redux/features/appointment/appointmentSlice";

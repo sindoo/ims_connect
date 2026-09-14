@@ -4,9 +4,11 @@ import {useDispatch, useSelector} from "react-redux";
 import {AppState} from "react-native";
 import ViewThemed from "../../../../../components/ui/ViewThemed";
 import {globalStyles} from "../../../../../style/Global";
-import {MaterialTopTabs} from "../../appointment/_layout";
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { withLayoutContext } from 'expo-router';
 import {COLORS} from "../../../../../constants";
 
+const MaterialTopTabs = withLayoutContext(createMaterialTopTabNavigator().Navigator);
 const ExchangeLibraryLayout = () => {
     const {t} = useTranslation();
     const {selectedChild} = useSelector((state: any) => state.child);

@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, TouchableOpacity, Text} from "react-native";
-import {DrawerContentScrollView, DrawerItem, DrawerItemList} from "expo-router/drawer";
+//import {DrawerContentScrollView, DrawerItem, DrawerItemList} from "expo-router/drawer";
+import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import {COLORS, IMAGES} from "../../constants";
 import {BASEURL_IMG} from "../../api/appUrl";
 import {useDispatch, useSelector} from "react-redux";
@@ -13,7 +14,6 @@ import {initializeTeacherValue} from "../../redux/features/employee/employeeSlic
 import {initializeNotification} from "../../redux/features/notification/notificationSlide";
 import {initializeDiscussion} from "../../redux/features/message/messageSlice";
 import {logoutUser} from "../../redux/features/userSlice";
-import { DrawerActions } from 'expo-router/react-navigation';
 import DrawerHeaderItem from "./DrawerHeaderItem";
 import {Image} from "expo-image";
 

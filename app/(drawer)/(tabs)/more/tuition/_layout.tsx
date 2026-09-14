@@ -2,10 +2,13 @@ import React, {useRef, useState} from 'react';
 import {globalStyles} from "../../../../../style/Global";
 import {COLORS} from "../../../../../constants";
 import ViewThemed from "../../../../../components/ui/ViewThemed";
-import {MaterialTopTabs} from "../../appointment/_layout";
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { withLayoutContext } from 'expo-router';
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import {AppState, View} from "react-native";
+
+const MaterialTopTabs = withLayoutContext(createMaterialTopTabNavigator().Navigator);
 
 const TuitionLayout = () => {
     const {t} = useTranslation();

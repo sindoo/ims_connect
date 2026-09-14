@@ -3,12 +3,13 @@ import ViewThemed from "../../../../components/ui/ViewThemed";
 import {globalStyles} from "../../../../style/Global";
 import {COLORS} from "../../../../constants";
 import {withLayoutContext} from "expo-router";
-import {
+/*import {
     MaterialTopTabNavigationEventMap,
     MaterialTopTabNavigationOptions,
-    createMaterialTopTabNavigator,
+    //createMaterialTopTabNavigator,
 } from "expo-router/js-top-tabs";
-import { ParamListBase, TabNavigationState } from 'expo-router/react-navigation';
+import { ParamListBase, TabNavigationState } from 'expo-router/react-navigation';*/
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import {AppState, Pressable} from "react-native";
@@ -20,12 +21,13 @@ import {checkAppState, checkTokenExpired} from "../../../../services/GeneralServ
 import Loading from "../../../../components/ui/Loading";
 
 const { Navigator } = createMaterialTopTabNavigator();
-export const MaterialTopTabs = withLayoutContext<
+/*export const MaterialTopTabs = withLayoutContext<
     MaterialTopTabNavigationOptions,
     typeof Navigator,
     TabNavigationState<ParamListBase>,
     MaterialTopTabNavigationEventMap
->(Navigator);
+>(Navigator);*/
+const MaterialTopTabs = withLayoutContext(createMaterialTopTabNavigator().Navigator);
 const AppointmentLayout = () => {
     const {t} = useTranslation();
     const {selectedChild} = useSelector((state: any) => state.child);

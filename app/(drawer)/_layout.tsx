@@ -46,7 +46,7 @@ const DrawerLayout = () => {
             />
 
             <Drawer.Screen
-                name="profile"
+                name="profile/index"
                 options={{
                     drawerLabel: t('drawer.profile'),
                     drawerIcon: () => (
@@ -75,7 +75,7 @@ const DrawerLayout = () => {
             />
 
             <Drawer.Screen
-                name="password"
+                name="password/index"
                 options={{
                     drawerLabel: t('drawer.edit_password'),
                     drawerIcon: () => (
