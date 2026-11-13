@@ -222,6 +222,7 @@
         "language_choice": "Select language"
     },
     "notification": {
+        "conversation_not_found": "This conversation could not be found.",
         "title": "Notification",
         "clear": "Clear",
         "from": "From",

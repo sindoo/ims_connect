@@ -54,7 +54,7 @@ function Conversation({
     navigation: any;
     snackbarShowMessage: any;
 }) {
-    const { discussionThreadId } = useLocalSearchParams();
+    const { discussionThreadId, space: spaceParam } = useLocalSearchParams();
     const [classroomTeach, setClassroomTeach] = useState('');
     const { user, userToken } = useSelector((state: any) => state.user);
     const { selectedChild } = useSelector((state: any) => state.child);
@@ -89,9 +89,25 @@ function Conversation({
     }));
 
     // Trouver le thread de discussion
+    // Ouverte depuis une notification, la conversation n'est pas forcément dans
+    // discussionTreadList (liste chargée seulement par l'onglet Messagerie, et
+    // pour l'enfant sélectionné) : on se rabat alors sur la conversation
+    // transmise par la notification (paramètre "space").
+    const spaceFromNotification = useMemo(() => {
+        if (typeof spaceParam !== 'string' || spaceParam === '') return null;
+        try {
+            const parsed = JSON.parse(spaceParam);
+            return parsed?.id != null && String(parsed.id) === String(discussionThreadId) ? parsed : null;
+        } catch {
+            return null;
+        }
+    }, [spaceParam, discussionThreadId]);
+
     const discussionThread = useMemo(
-        () => discussionTreadList.find((thread: any) => thread.id.toString() === discussionThreadId),
-        [discussionTreadList, discussionThreadId]
+        () => discussionTreadList.find((thread: any) => String(thread?.id) === String(discussionThreadId))
+            ?? spaceFromNotification
+            ?? undefined,
+        [discussionTreadList, discussionThreadId, spaceFromNotification]
     );
 
     // Utiliser le hook STOMP optimisé

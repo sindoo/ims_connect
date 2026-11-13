@@ -42,6 +42,7 @@ import AppointmentService from "../../../services/AppointmentService";
 import {setAppointmentDetailsInRedux} from "../../../redux/features/appointment/appointmentSlice";
 import {router} from "expo-router";
 
+import {captureFeatureError} from "../../../services/sentryService";
 // Types
 interface Notification {
     id: string;
@@ -423,8 +424,14 @@ const Notification = () => {
         setFilterType('');
     }, []);
 
-    const handleChangeChild = useCallback((childSelectedId: string) => {
-        const findChild = children.find((child: Child) => child?.id === childSelectedId);
+    // Les notifications donnent selon les cas l'id de l'enfant ou celui de sa
+    // personne (enfantId) : on accepte les deux, comme l'affichage du nom.
+    const handleChangeChild = useCallback((childSelectedId: string | number) => {
+        if (childSelectedId == null) return;
+        const findChild = children.find((child: Child) =>
+            String(child?.id) === String(childSelectedId)
+            || String((child as any)?.person?.id) === String(childSelectedId)
+        );
         if (findChild) {
             dispatch(changeChild(findChild));
         }
@@ -542,7 +549,15 @@ const Notification = () => {
 
     const handleNavigationByType = useCallback(async (notification: any) => {
         const tag = notification?.common?.tag;
-        const message = notification?.message;
+        // Le message peut arriver sous forme de chaîne JSON (comme le gère déjà l'affichage)
+        let message: any = notification?.message;
+        if (typeof message === 'string') {
+            try {
+                message = JSON.parse(message);
+            } catch {
+                message = null;
+            }
+        }
         const childId = message?.enfantId;
 
         // Gestion du changement d'enfant
@@ -701,24 +716,39 @@ const Notification = () => {
 
     const handleMessageCenterNavigation = useCallback(async (message: any) => {
         try {
-            if(message) {
-                const childSelectedID = message?.space.enfantId;
-                handleChangeChild(childSelectedID);
+            const space = message?.space;
+            const threadId = space?.id;
 
-                const pathname = '/pages/message';
-                await delay(NAVIGATION_DELAY_MS);
-                router.push({
-                    pathname: pathname,
-                    params: {
-                        discussionThreadId: JSON.stringify(message?.space?.id),
-                    }
+            // Sans conversation identifiable, on prévient l'utilisateur au lieu
+            // de ne rien faire, et on remonte la structure reçue à Sentry.
+            if (threadId == null) {
+                showSnackbar(t('notification.conversation_not_found'), 'error');
+                captureFeatureError('notification.message_center.no_space', null, {
+                    messageType: typeof message,
+                    messageKeys: message && typeof message === 'object' ? Object.keys(message).join(',') : null,
                 });
+                return;
             }
+
+            handleChangeChild(space?.enfantId);
+
+            const pathname = '/pages/message';
+            await delay(NAVIGATION_DELAY_MS);
+            router.push({
+                pathname: pathname,
+                params: {
+                    discussionThreadId: String(threadId),
+                    // Conversation de secours si elle n'est pas dans la liste en mémoire
+                    space: JSON.stringify(space),
+                }
+            });
         }
         catch (error) {
             console.error("[NotificationHeader]: Error occurred on Message Center router redirection", error)
+            showSnackbar(t('notification.conversation_not_found'), 'error');
+            captureFeatureError('notification.message_center.navigation', error, {});
         }
-    }, [children, handleChangeChild]);
+    }, [children, handleChangeChild, showSnackbar, t]);
 
 
     // ✅ Suppression effective de toutes les notifications, déclenchée

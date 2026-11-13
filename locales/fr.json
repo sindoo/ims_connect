@@ -222,6 +222,7 @@
         "language_choice": "Choix de la langue"
     },
     "notification": {
+        "conversation_not_found": "Cette conversation est introuvable.",
         "title": "Notification",
         "clear": "Effacer",
         "from": "De",
