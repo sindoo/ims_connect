@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, AppState, RefreshControl} from "react-native";
 import {useFocusEffect} from '@react-navigation/native';
+import {useLocalSearchParams} from "expo-router";
 import {globalStyles} from "../../../../style/Global";
 import {COLORS, IMAGES} from "../../../../constants";
 import ViewThemed from "../../../../components/ui/ViewThemed";
@@ -15,9 +16,18 @@ import {checkAppState, checkTokenExpired} from "../../../../services/GeneralServ
 import WeekService from "../../../../services/WeekService";
 import Loading from "../../../../components/ui/Loading";
 
-const ImsDayHome = (props) => {
 import {apiErrorMessage} from '../../../../api/ApiManager';
+const ImsDayHome = (props) => {
     const {snackbarShowMessage} = props;
+    // Journée IMS demandée depuis une notification (sinon : la plus récente)
+    const {imsDayId: imsDayIdParam, openedAt: openedAtParam} =
+        useLocalSearchParams<{imsDayId?: string; openedAt?: string}>();
+    // Demande de notification déjà appliquée : les retours suivants sur
+    // l'onglet affichent de nouveau la journée la plus récente.
+    const consumedRequestRef = useRef<string | null>(null);
+    // Numéro du dernier chargement lancé : un chargement plus ancien qui se
+    // termine après ne doit plus modifier l'écran (sinon mélange journée/menu).
+    const fetchSeqRef = useRef(0);
     const {t} = useTranslation();
     const [imsDayList, setImsDayList] = useState<any>([]);
     const [imsDayInfo, setImsDayInfo] = useState<any>(null);
@@ -171,6 +181,9 @@ import {apiErrorMessage} from '../../../../api/ApiManager';
     // sur l'onglet. Le vidage (resetImsDayState) n'intervient plus que dans
     // les cas où il n'y a réellement rien à montrer.
     const fetchImsDayData = useCallback(async () => {
+        const fetchSeq = ++fetchSeqRef.current;
+        const isStale = () => fetchSeq !== fetchSeqRef.current;
+        const requestKey = imsDayIdParam ? `${imsDayIdParam}-${openedAtParam ?? ''}` : null;
         try {
             setLoading(true);
             // ✅ Remet aussi "menuYearLoading" à true à chaque rechargement
@@ -184,12 +197,23 @@ import {apiErrorMessage} from '../../../../api/ApiManager';
             if(selectedChild !== null) {
                 // ALL IMS DAY MENU LIST
                 const childImsDayList = await ImsDayService.getChildImsDay(selectedChild.person.id);
+                if (isStale()) return;
                 // CONNECTED CHILD IMS DAY LIST
                 if (childImsDayList.length > 0) {
                     setImsDayList(childImsDayList);
-                    const imsDayInformation = childImsDayList[childImsDayList.length - 1];
+                    // Ouverte depuis une notification : on affiche la journée
+                    // correspondante ; sinon la plus récente, comme avant.
+                    const requestedIndex = requestKey && consumedRequestRef.current !== requestKey
+                        ? childImsDayList.findIndex((day: any) => String(day?.id) === String(imsDayIdParam))
+                        : -1;
+                    const selectedIndex = requestedIndex >= 0 ? requestedIndex : childImsDayList.length - 1;
+                    if (requestedIndex >= 0) {
+                        consumedRequestRef.current = requestKey;
+                    }
+                    const imsDayInformation = childImsDayList[selectedIndex];
                     setImsDayInfo(imsDayInformation);
-                    setIndex(childImsDayList.length - 1);
+                    setIndex(selectedIndex);
+                    setParentCommentStatus(false);
                     // ✅ Affichage immédiat de la journée IMS dès qu'elle est
                     // connue : le menu (ci-dessous) continue de charger en
                     // arrière-plan derrière son propre indicateur
@@ -208,6 +232,7 @@ import {apiErrorMessage} from '../../../../api/ApiManager';
                         MenuYearService.getPlatCanteen(),
                         WeekService.getAllWeekData(),
                     ]);
+                    if (isStale()) return;
                     setMenuJourList(menuJourListRequest);
                     setMenuCanteenList(menuCanteenRequest);
                     setDishList(dishRequestList);
@@ -219,6 +244,7 @@ import {apiErrorMessage} from '../../../../api/ApiManager';
 
                     if (dayMenuFind === undefined) {
                         dayMenuFind = await MenuYearService.getMenuJour(imsDayInformation?.menuJourId);
+                        if (isStale()) return;
                     }
 
                     const weekFind = weekListRequest.find(
@@ -276,11 +302,12 @@ import {apiErrorMessage} from '../../../../api/ApiManager';
         }
         catch (error) {
             console.log(error);
+            if (isStale()) return;
             setLoading(false);
             setHasLoadedOnce(true);
             checkTokenExpired(userToken, dispatch);
         }
-    }, [selectedChild, user, userToken, dispatch, resetImsDayState]);
+    }, [selectedChild, user, userToken, dispatch, resetImsDayState, imsDayIdParam, openedAtParam]);
 
     // ✅ REMPLACE l'ancien useEffect(() => {...}, [selectedChild]), qui ne
     // se relançait qu'au montage ou quand l'enfant sélectionné changeait.

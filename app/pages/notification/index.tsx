@@ -704,8 +704,10 @@ const Notification = () => {
                 router.push({
                     pathname: pathname,
                     params: {
-                        miniClubId: JSON.stringify(message?.id),
-                        registrationStatus: 0,
+                        // Id de la journée IMS : l'écran affiche cette journée
+                        imsDayId: message?.id != null ? String(message.id) : undefined,
+                        // Rend chaque ouverture unique (même notification touchée deux fois)
+                        openedAt: String(Date.now()),
                     }
                 });
             }
