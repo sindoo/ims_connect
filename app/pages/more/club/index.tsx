@@ -24,6 +24,7 @@ import { COLORS } from '../../../../constants';
 import FlatButton from '../../../../components/ui/FlatButton';
 import RegisteredChildrenItem from '../../../../components/tabs/more/club/RegisteredChildrenItem';
 
+import {apiErrorMessage} from '../../../../api/ApiManager';
 // Constantes
 const NOTIFICATION_DURATION = 4000;
 const MAX_PARTICIPANTS_DISPLAY = 200;
@@ -172,7 +173,7 @@ function MiniClubDetails() {
         } catch (error: any) {
             if (error?.name !== 'AbortError' && !error?.message?.includes('canceled')) {
                 console.error('Error loading mini club details:', error);
-                showSnackbar(t('common.error_loading'), 'error', NOTIFICATION_DURATION);
+                showSnackbar(apiErrorMessage(error, t('common.error_loading')), 'error', NOTIFICATION_DURATION);
             }
         } finally {
             setLoading(false);
@@ -211,7 +212,7 @@ function MiniClubDetails() {
 
         } catch (error) {
             console.error('Subscription error:', error);
-            showSnackbar(t('more.subscription_error'), 'error', NOTIFICATION_DURATION);
+            showSnackbar(apiErrorMessage(error, t('more.subscription_error')), 'error', NOTIFICATION_DURATION);
         } finally {
             setIsSubmitting(false);
         }
@@ -245,7 +246,7 @@ function MiniClubDetails() {
 
         } catch (error) {
             console.error('Unsubscription error:', error);
-            showSnackbar(t('more.unsubscription_error'), 'error', NOTIFICATION_DURATION);
+            showSnackbar(apiErrorMessage(error, t('more.unsubscription_error')), 'error', NOTIFICATION_DURATION);
         } finally {
             setIsSubmitting(false);
         }

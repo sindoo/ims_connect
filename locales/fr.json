@@ -352,6 +352,7 @@
     "snackBar": {
         "sb_succes_save": "Succès de l'enregistrement",
         "sb_succes_cancel": "Succès de l'annulation",
+        "sb_missing_data": "Certaines informations nécessaires sont manquantes (enfant, classe…). Rechargez l'écran ; si le problème persiste, contactez l'école.",
         "sb_error" : "Echec de l'enregistrement",
         "sb_form_invalid": "Champs invalides ou manquants",
         "sb_error_delete" : "Echec de la suppression",

@@ -353,6 +353,7 @@
     "snackBar": {
         "sb_succes_save": "Successful registration",
         "sb_succes_cancel": "Successful unregistration",
+        "sb_missing_data": "Some required information is missing (child, class…). Please reload the screen; if the problem persists, contact the school.",
         "sb_error": "Registration failed",
         "sb_form_invalid": "Invalid or missing fields",
         "sb_error_delete" : "Delete failed",

@@ -24,6 +24,7 @@ import { COLORS } from '../../../../../constants';
 import { TMiniClub } from '../../../../../lib/type/TMiniClubProps';
 import MiniClubItem from '../../../../../components/tabs/more/club/MiniClubItem';
 
+import {apiErrorMessage} from '../../../../../api/ApiManager';
 const SNACKBAR_DURATION = 3000;
 
 function MiniClub() {
@@ -113,7 +114,7 @@ function MiniClub() {
         } catch (error: any) {
             if (error?.name !== 'AbortError') {
                 console.error('Error fetching mini clubs:', error);
-                showSnackbar(t('common.error_loading'), 'error');
+                showSnackbar(apiErrorMessage(error, t('common.error_loading')), 'error');
                 checkTokenExpired(userToken, dispatch);
             }
         } finally {

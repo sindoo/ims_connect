@@ -18,7 +18,7 @@ import * as yup from 'yup';
 import {useTranslation} from "react-i18next";
 import {COLORS, IMAGES, TIME_ZONE_ABIDJAN} from "../../../constants";
 import {useDispatch, useSelector} from "react-redux";
-import {request} from "../../../api/ApiManager";
+import {request, apiErrorMessage} from '../../../api/ApiManager';
 import {setAppointmentDetailsInRedux, updateAppointment} from "../../../redux/features/appointment/appointmentSlice";
 import {useRouter} from "expo-router";
 import {format, getHours, getMinutes, getTime, set, toDate} from "date-fns";
@@ -270,7 +270,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                 setLoading(false);
                 const msg = error.response?.data?.codeMessage === 'RDV_DATE_NOT_FREE'
                     ? t('allAppointment.rdv_date_not_free')
-                    : t('snackBar.sb_error');
+                    : apiErrorMessage(error, t('snackBar.sb_error'));
                 showSnackbar(msg);
                 console.log(`Error ${actionType}ing appointment:`, JSON.stringify(error));
             });
@@ -517,7 +517,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                 setButtonStatus(false);
                 const msg = error.response?.data?.codeMessage === 'RDV_DATE_NOT_FREE'
                     ? t('allAppointment.rdv_date_not_free')
-                    : t('snackBar.sb_error');
+                    : apiErrorMessage(error, t('snackBar.sb_error'));
                 showSnackbar(msg);
                 console.log('Error updating appointment:', error);
             }

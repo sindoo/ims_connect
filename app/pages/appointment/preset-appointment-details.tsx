@@ -7,7 +7,7 @@ import {format} from 'date-fns';
 import {fr, enUS} from 'date-fns/locale';
 import {useDispatch, useSelector} from 'react-redux';
 import {ScrollView} from 'react-native-gesture-handler';
-import {request} from '../../../api/ApiManager';
+import {request, apiErrorMessage} from '../../../api/ApiManager';
 import {toZonedTime} from "date-fns-tz";
 import {
     setAllAppointmentList,
@@ -136,7 +136,7 @@ function PresetAppointmentDetails({
                     snackbarShowMessage(
                         error?.response?.data?.codeMessage === 'RDV_DATE_NOT_FREE'
                             ? t('allAppointment.rdv_date_not_free')
-                            : t('snackBar.sb_error'),
+                            : apiErrorMessage(error, t('snackBar.sb_error')),
                     );
                 });
         }
@@ -208,7 +208,7 @@ function PresetAppointmentDetails({
                         //const result = JSON.parse(error.config.data);
                         console.log('Appointment preset detail Screen: (Cancelling un slot) ', JSON.stringify(error));
                         setStatusButtonCancel(false);
-                        snackbarShowMessage(t('snackBar.sb_error'));
+                        snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
                     });
             }
             else {

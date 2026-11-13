@@ -297,7 +297,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       } else {
         const serverData = error.response?.data;
         const status = error.response?.status;
-        const errorMessage = serverData?.message
+        const errorMessage = (error?.isMissingParam ? error.message : null)
+            || serverData?.message
             || (serverData?.codeMessage ? `${t('snackBar.sb_error')} (${serverData.codeMessage})` : null)
             || (status ? `${t('snackBar.sb_error')} (${status})` : t('login.network_error'));
         showSnackbar(errorMessage);

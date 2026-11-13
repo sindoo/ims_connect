@@ -148,3 +148,23 @@ export const captureFeatureError = (
         Sentry.captureMessage(`Feature error: ${name}${status ? ` (${status})` : ''}`);
     });
 };
+
+// Requête bloquée avant envoi car l'URL contenait un identifiant manquant
+// (undefined/null). Regroupé par route, une fois par minute au plus.
+export const captureMissingParam = (method: string, url: string) => {
+    if (!isSentryEnabled) return;
+
+    const route = toRoute(url);
+    const key = `missing ${method} ${route}`;
+    const now = Date.now();
+    if (now - (lastApiErrorAt.get(key) ?? 0) < API_ERROR_THROTTLE_MS) return;
+    lastApiErrorAt.set(key, now);
+
+    Sentry.withScope(scope => {
+        scope.setLevel('error');
+        scope.setFingerprint(['api-missing-param', method, route]);
+        scope.setTag('api.route', route);
+        scope.setContext('api', {method, route});
+        Sentry.captureMessage(`Identifiant manquant dans l'URL : ${method} ${route}`);
+    });
+};

@@ -43,6 +43,7 @@ import {setAppointmentDetailsInRedux} from "../../../redux/features/appointment/
 import {router} from "expo-router";
 
 import {captureFeatureError} from "../../../services/sentryService";
+import {apiErrorMessage} from '../../../api/ApiManager';
 // Types
 interface Notification {
     id: string;
@@ -521,7 +522,7 @@ const Notification = () => {
             showSnackbar(t('notification.delete_success'), 'success');
         } catch (error) {
             console.log('Delete notification error:', error);
-            showSnackbar(t('notification.delete_error'), 'error');
+            showSnackbar(apiErrorMessage(error, t('notification.delete_error')), 'error');
         } finally {
             setDeletingIds(prev => {
                 if (!prev.has(notification.id)) return prev;
@@ -771,7 +772,7 @@ const Notification = () => {
             showSnackbar(t('notification.delete_all_success'), 'success');
         } catch (error) {
             console.log('Clear notifications error:', error);
-            showSnackbar(t('notification.delete_all_error'), 'error');
+            showSnackbar(apiErrorMessage(error, t('notification.delete_all_error')), 'error');
         } finally {
             setIsLoading(false);
         }

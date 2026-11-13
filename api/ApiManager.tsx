@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import {captureApiError} from '../services/sentryService';
+import {captureApiError, captureMissingParam} from '../services/sentryService';
+import i18next from '../i18next/i18next';
 
 // LOCAL CONFIG
 const AXIOS_BASEURL = 'https://ims.bagadis.com/api/v1'; // GOOD
@@ -24,6 +25,64 @@ axios.interceptors.response.use(
     },
 );
 
+// ===== Garde-fou : identifiant manquant dans l'URL =====
+// Un id null/undefined dans un template (`/enfant/${id}`) produit une URL comme
+// "/enfant/undefined" que le backend rejette avec une erreur peu parlante.
+// Toutes les requêtes passent par ce contrôle : la requête n'est pas envoyée,
+// une MissingParamError est levée (message traduit pour l'utilisateur) et le
+// cas est signalé à Sentry.
+const INVALID_URL_VALUE = /^(undefined|null|NaN|\[object Object\])$/;
+
+const safeDecode = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+export const findMissingUrlParam = (url: unknown): boolean => {
+  if (typeof url !== 'string') return false;
+  const [rawPath, query = ''] = url.split('?');
+  const path = rawPath.replace(/^https?:\/\/[^/]+/i, '');
+  const segments = path.split('/');
+  const badSegment = segments.some((segment, index) => {
+    const value = safeDecode(segment);
+    // segment vide au milieu ("//") = valeur vide interpolée
+    const isEmptyMiddle = value === '' && index > 0 && index < segments.length - 1;
+    return isEmptyMiddle || INVALID_URL_VALUE.test(value);
+  });
+  if (badSegment) return true;
+  return query
+      .split('&')
+      .filter(Boolean)
+      .some(pair => INVALID_URL_VALUE.test(safeDecode(pair.split('=')[1] ?? '')));
+};
+
+export class MissingParamError extends Error {
+  code = 'ERR_MISSING_PARAM';
+  isMissingParam = true;
+  config: {method: string; url: string};
+
+  constructor(method: string, url: string) {
+    super(i18next.t('snackBar.sb_missing_data'));
+    this.name = 'MissingParamError';
+    this.config = {method, url};
+  }
+}
+
+const assertUrlParams = (method: string, url: unknown) => {
+  if (findMissingUrlParam(url)) {
+    captureMissingParam(method, String(url));
+    throw new MissingParamError(method, String(url));
+  }
+};
+
+// Message à afficher à l'utilisateur : message dédié si un identifiant manquait,
+// sinon le message d'erreur habituel de l'écran (fallback).
+export const apiErrorMessage = (error: any, fallback: string): string =>
+    error?.isMissingParam ? i18next.t('snackBar.sb_missing_data') : fallback;
+
 export const getAuthToken = async () => {
   return await AsyncStorage.getItem('authToken');
 };
@@ -42,6 +101,7 @@ export const request = async (
     url: any,
     data: any,
 ) => {
+  assertUrlParams(String(method), url);
   let headers = {};
   const token = await getAuthToken();
   if (token !== null) {
@@ -65,6 +125,7 @@ export const uploadFileRequest = async (
     url: any,
     data: any,
 ) => {
+  assertUrlParams(String(method), url);
   //let headers = { 'Content-Type': 'multipart/form-data' };
   let headers = {
     Accept: 'application/json',
@@ -90,6 +151,7 @@ export const uploadFileRequest = async (
 // signal (optionnel) : permet d'annuler la requête via un AbortController,
 // sans casser les appels existants qui ne le fournissent pas.
 export const getRequest = async (baseURL: any, url: any, signal?: AbortSignal) => {
+  assertUrlParams('GET', url);
   let headers = {};
   const token = await getAuthToken();
   const completeURL = baseURL === '' ? AXIOS_BASEURL + url : baseURL + url;
@@ -112,6 +174,7 @@ export const postRequest = async (
     url: any,
     data: any,
 ) => {
+  assertUrlParams('POST', url);
   let headers = {};
   const token = await getAuthToken();
   const completeURL = baseURL === '' ? AXIOS_BASEURL + url : baseURL + url;
@@ -131,6 +194,7 @@ export const putRequest = async (
     url: any,
     data: any,
 ) => {
+  assertUrlParams('PUT', url);
   let headers = {};
   const token = await getAuthToken();
   const completeURL = baseURL === '' ? AXIOS_BASEURL + url : baseURL + url;
@@ -150,6 +214,7 @@ export const deleteRequest = async (
     url: any,
     data: any,
 ) => {
+  assertUrlParams('DELETE', url);
   let headers = {};
   const token = await getAuthToken();
   //const completeURL = baseURL === "" ? AXIOS_BASEURL+url : baseURL+url;

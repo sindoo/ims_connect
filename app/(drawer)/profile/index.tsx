@@ -14,7 +14,7 @@ import {Formik} from 'formik';
 import * as yup from 'yup';
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
-import {request, uploadFileRequest} from "../../../api/ApiManager";
+import {request, uploadFileRequest, apiErrorMessage} from '../../../api/ApiManager';
 import {changeChild} from "../../../redux/features/child/childSlice";
 import UtilitiesService from "../../../services/UtilitiesService";
 import {COLORS, CONSTANT, GENDER_EN, GENDER_FR, IMAGE_RIGHTS_EN, IMAGE_RIGHTS_FR, IMAGES} from "../../../constants";
@@ -620,7 +620,7 @@ function Profile(props: any) {
                                             url: error?.config?.url,
                                         }));
                                         setButtonStatus(false);
-                                        snackbarShowMessage(t('snackBar.sb_error'));
+                                        snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
                                     });
                             }
                         }}>

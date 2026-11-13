@@ -24,6 +24,7 @@ import FlatButton from "../../../ui/FlatButton";
 import {SafeAreaProvider, SafeAreaView} from "react-native-safe-area-context";
 
 
+import {apiErrorMessage} from '../../../../api/ApiManager';
 const surveyFormSchema = yup.object({
   opinionSurvey: yup.string().required(),
 });
@@ -158,7 +159,7 @@ function SurveyForm({
                         console.log(error);
                         setButtonStatus(false);
                         setSurveyStatus(false);
-                        snackbarShowMessage(t('snackBar.sb_error'));
+                        snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
                       }
                     }}>
                     {formikProps => (

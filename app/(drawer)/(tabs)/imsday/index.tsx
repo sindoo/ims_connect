@@ -16,6 +16,7 @@ import WeekService from "../../../../services/WeekService";
 import Loading from "../../../../components/ui/Loading";
 
 const ImsDayHome = (props) => {
+import {apiErrorMessage} from '../../../../api/ApiManager';
     const {snackbarShowMessage} = props;
     const {t} = useTranslation();
     const [imsDayList, setImsDayList] = useState<any>([]);
@@ -70,7 +71,7 @@ const ImsDayHome = (props) => {
             }
         }
         catch (error) {
-            snackbarShowMessage(t('snackBar.sb_error'));
+            snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
             console.log(error);
             setParentCommentStatus(false);
         }

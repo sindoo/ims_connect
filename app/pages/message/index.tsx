@@ -19,7 +19,7 @@ import { COLORS, IMAGES } from '../../../constants';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { BASEURL_IMG } from '../../../api/appUrl';
-import { putRequest, uploadFileRequest } from '../../../api/ApiManager';
+import { putRequest, uploadFileRequest, apiErrorMessage} from '../../../api/ApiManager';
 import { globalStyles } from '../../../style/Global';
 import EmployeeMessageItem from '../../../components/tabs/message/EmployeeMessageItem';
 import ParentMessageItem from '../../../components/tabs/message/ParentMessageItem';
@@ -511,7 +511,7 @@ function Conversation({
                             navigation?.goBack();
                         }
                     } catch (error) {
-                        snackbarShowMessage(t('snackBar.sb_error_delete'));
+                        snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error_delete')));
                         console.error('[Conversation] Error deleting discussion:', error);
                     }
                 },

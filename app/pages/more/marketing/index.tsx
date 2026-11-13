@@ -21,6 +21,7 @@ import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
 import {useLocalSearchParams} from "expo-router";
 import Loading from "../../../../components/ui/Loading";
 
+import {apiErrorMessage} from '../../../../api/ApiManager';
 function ProductDetails({route, snackbarShowMessage}: TProductDetailsProps) {
     // @ts-ignore
     //const {data} = route.params;
@@ -72,7 +73,7 @@ function ProductDetails({route, snackbarShowMessage}: TProductDetailsProps) {
                 snackbarShowMessage(t('snackBar.sb_succes_save'));
             }
         } catch (error) {
-            snackbarShowMessage(t('snackBar.sb_error'));
+            snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
         } finally {
             setStatus(false);
         }
