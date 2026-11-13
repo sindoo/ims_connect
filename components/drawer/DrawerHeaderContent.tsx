@@ -13,7 +13,7 @@ import {initializeAllAppointment} from "../../redux/features/appointment/appoint
 import {initializeTeacherValue} from "../../redux/features/employee/employeeSlice";
 import {initializeNotification} from "../../redux/features/notification/notificationSlide";
 import {initializeDiscussion} from "../../redux/features/message/messageSlice";
-import {logoutUser} from "../../redux/features/userSlice";
+import {logoutUser} from "../../redux/features/user/userSlice";
 import DrawerHeaderItem from "./DrawerHeaderItem";
 import {Image} from "expo-image";
 

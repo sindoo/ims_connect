@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useMemo} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {TMarketingItemProps} from "../../../../lib/type/TMarketingProps";
 import {COLORS, IMAGES} from "../../../../constants";
@@ -6,51 +6,53 @@ import {BASEURL_IMG} from "../../../../api/appUrl";
 import {Image} from "expo-image";
 import {globalStyles} from "../../../../style/Global";
 
-export default function UserProductItem({data}: TMarketingItemProps) {
-  const amount = new Intl.NumberFormat('fr-FR').format(data?.prix);
+const NOOP = () => {};
 
-  useEffect(() => {}, []);
+function UserProductItem({data}: TMarketingItemProps) {
+  // ✅ Memoise le formatage du prix au lieu de recreer un
+  // Intl.NumberFormat a chaque rendu de la ligne dans la liste.
+  const amount = useMemo(() => new Intl.NumberFormat('fr-FR').format(data?.prix), [data?.prix]);
+
   return (
-    <View
-      style={{
-        marginBottom: 20,
-        borderBottomWidth: 1,
-        borderColor: COLORS.grayMedium,
-      }}>
-      <Pressable onPress={() => {}}>
-        <View style={styles.productItem}>
-          <Image
-            source={
-              data?.photo !== '' && data?.photo !== null
-                ? {uri: `${BASEURL_IMG}/${data?.photo}`}
-                : IMAGES.noBookImage
-            }
-            contentFit="cover"
-            style={styles.productImageCover}
-          />
-          <View style={styles.productDetails}>
-            <View style={{flexDirection: 'row'} as StyleSheet}>
-              <Text style={styles.titleDetail}>{data?.nom}</Text>
-              <Text style={{textAlign: 'right', color: COLORS.black} as StyleSheet}>
-                {amount} CFA
+      <View style={styles.itemWrapper}>
+        <Pressable onPress={NOOP}>
+          <View style={styles.productItem}>
+            <Image
+                source={
+                  data?.photo !== '' && data?.photo !== null
+                      ? {uri: `${BASEURL_IMG}/${data?.photo}`}
+                      : IMAGES.noBookImage
+                }
+                contentFit="cover"
+                style={styles.productImageCover}
+            />
+            <View style={styles.productDetails}>
+              <View style={styles.rowWrap}>
+                <Text style={styles.titleDetail}>{data?.nom}</Text>
+                <Text style={styles.amountText}>
+                  {amount} CFA
+                </Text>
+              </View>
+              <Text style={styles.description}>
+                {data?.description}
               </Text>
             </View>
-            <Text
-              style={{
-                ...globalStyles.paragraph,
-                paddingTop: 5,
-                textAlign: 'justify',
-              } as StyleSheet}>
-              {data?.description}
-            </Text>
           </View>
-        </View>
-      </Pressable>
-    </View>
+        </Pressable>
+      </View>
   );
 }
 
+// Memoïse le composant : rendu dans une FlatList (liste des commandes), il
+// ne doit se re-rendre que si son propre "data" change.
+export default React.memo(UserProductItem);
+
 const styles = StyleSheet.create({
+  itemWrapper: {
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderColor: COLORS.grayMedium,
+  },
   productItem: {
     flexDirection: 'row',
     padding: 10,
@@ -77,10 +79,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.black,
   },
+  rowWrap: {
+    flexDirection: 'row',
+  },
+  amountText: {
+    textAlign: 'right',
+    color: COLORS.black,
+  },
+  description: {
+    ...globalStyles.paragraph,
+    paddingTop: 5,
+    textAlign: 'justify',
+  },
   toolsActivity: {
     flexDirection: 'row',
     marginTop: 7,
-    //backgroundColor: 'red'
   },
   buttonContainer: {
     flex: 1,

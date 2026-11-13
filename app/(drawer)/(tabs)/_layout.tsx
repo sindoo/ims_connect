@@ -59,7 +59,6 @@ export default function TabLayout() {
                 options={{
                     title: t('myDayAtIms.title'),
                     headerTintColor: theme.tabIconColorFocused,
-                    //unmountOnBlur: true,
                     tabBarIcon: ({ focused }) => (
                         <MaterialCommunityIcons
                             size={28}
@@ -80,7 +79,6 @@ export default function TabLayout() {
                 options={{
                     title: t('message.title'),
                     headerTintColor: theme.tabIconColorFocused,
-                    //unmountOnBlur: true,
                     tabBarIcon: ({ focused }) => (
                         <MaterialIcons
                             size={28}

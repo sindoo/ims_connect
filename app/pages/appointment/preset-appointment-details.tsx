@@ -12,12 +12,13 @@ import {toZonedTime} from "date-fns-tz";
 import {
     setAllAppointmentList,
     setPresetAppointmentList,
+    setAppointmentDetailsInRedux,
     updatePresetAppoint
 } from "../../../redux/features/appointment/appointmentSlice";
 import AppointmentService from "../../../services/AppointmentService";
 import {withSnackbar} from "../../../components/ui/SnackbarHOC";
 import SelectFieldAppointment from "../../../components/ui/SelectFieldAppointment";
-import {useLocalSearchParams} from "expo-router";
+import {router, useLocalSearchParams} from "expo-router";
 import ViewThemed from "../../../components/ui/ViewThemed";
 
 function PresetAppointmentDetails({
@@ -47,14 +48,27 @@ function PresetAppointmentDetails({
     const [deadlineMeeting, setDeadlineMeeting] = useState(false);
     const [creneauRdvChoiceSelect, setCreneauRdvChoiceSelect] = useState<any>(undefined);
 
+    // Recharge le rdv depuis le serveur et met à jour le store : l'écran (créneau
+    // choisi, boutons, liste des horaires disponibles) se rafraîchit tout seul,
+    // sans quitter la page.
+    const refreshAppointmentDetails = async () => {
+        const freshDetails = await AppointmentService.getAppointmentById(appointmentDetailsInRedux?.id);
+        if (freshDetails) {
+            dispatch(setAppointmentDetailsInRedux(freshDetails));
+        }
+    };
+
     const handleUserSelectChange = (item: any, index: number) => {
         setCreneauSelected(item);
     };
 
     const handleCreneauSelectionSubmit = () => {
         if (creneauSelected !== null && selectedChild !== null) {
+            // Champs ajoutés uniquement pour l'affichage (libellés du sélecteur) :
+            // ils ne font pas partie du modèle serveur et ne doivent pas être envoyés.
+            const {dateAppointmentSlot, startTimeSlot, endTimeSlot, ...creneauToSend} = creneauSelected;
             const dataToSend = {
-                ...creneauSelected,
+                ...creneauToSend,
                 id: creneauSelected?.id,
                 rdvId: creneauSelected?.rdvId,
                 dateDebut: creneauSelected?.dateDebut,
@@ -86,8 +100,7 @@ function PresetAppointmentDetails({
             };
 
             setStatusButtonSubmit(true);
-            console.log(JSON.stringify(dataToSend));
-
+            //console.log(JSON.stringify(dataToSend));
             request(
                 'PUT',
                 '',
@@ -96,7 +109,6 @@ function PresetAppointmentDetails({
             )
                 .then(async response => {
                     setCreneauSelected(response.data);
-
                     dispatch(
                         updatePresetAppoint({
                             rdvId: appointmentDetailsInRedux?.id,
@@ -109,15 +121,23 @@ function PresetAppointmentDetails({
                     const presetAppointmentChild = await AppointmentService.getAllPresetAppointment(selectedChild);
                     dispatch(setPresetAppointmentList(presetAppointmentChild));
 
+                    await refreshAppointmentDetails();
                     setStatusButtonSubmit(false);
-                    navigation.navigate(ROUTES.APPOINTMENT, {screen: ROUTES.ALL_APPOINTMENT});
                     snackbarShowMessage(t('snackBar.sb_succes_save'));
                 })
                 .catch(error => {
                     // Error message
-                    console.log(JSON.stringify(error));
+                    console.log(
+                        'Appointment preset detail Screen: (Choosing un slot) ',
+                        error?.response?.status,
+                        JSON.stringify(error?.response?.data),
+                    );
                     setStatusButtonSubmit(false);
-                    snackbarShowMessage(t('snackBar.sb_error'));
+                    snackbarShowMessage(
+                        error?.response?.data?.codeMessage === 'RDV_DATE_NOT_FREE'
+                            ? t('allAppointment.rdv_date_not_free')
+                            : t('snackBar.sb_error'),
+                    );
                 });
         }
     };
@@ -166,6 +186,7 @@ function PresetAppointmentDetails({
                     dataToSend,
                 )
                     .then(async response => {
+                        setStatusButtonCancel(false);
                         dispatch(
                             updatePresetAppoint({
                                 rdvId: appointmentDetailsInRedux.id,
@@ -178,14 +199,14 @@ function PresetAppointmentDetails({
                         const presetAppointmentChild = await AppointmentService.getAllPresetAppointment(selectedChild);
                         dispatch(setPresetAppointmentList(presetAppointmentChild));
 
+                        await refreshAppointmentDetails();
                         setStatusButtonCancel(false);
-                        //navigation.navigate('Appointment');
-                        navigation.navigate(ROUTES.APPOINTMENT);
+                        snackbarShowMessage(t('snackBar.sb_cancel'));
                     })
                     .catch(error => {
                         // Error message
                         //const result = JSON.parse(error.config.data);
-                        console.log(JSON.stringify(error));
+                        console.log('Appointment preset detail Screen: (Cancelling un slot) ', JSON.stringify(error));
                         setStatusButtonCancel(false);
                         snackbarShowMessage(t('snackBar.sb_error'));
                     });
@@ -199,6 +220,14 @@ function PresetAppointmentDetails({
     useEffect(() => {
         const fetchData = async () => {
             try {
+                // Remise à zéro avant recalcul : sans cela, après une annulation (le
+                // créneau n'est plus rattaché à l'enfant) les anciens états restaient
+                // affichés (bouton « Annuler » actif, « Enregistrer » grisé).
+                setCancelButtom(true);
+                setSaveEditButtom(false);
+                setCreneauChoiceDone([]);
+                setCreneauRdvChoiceSelect(undefined);
+
                 let creneauRdvRequest: any = [...appointmentDetailsInRedux?.creneauRdvs];
                 if (creneauRdvRequest.length > 0) {
                     creneauRdvRequest = creneauRdvRequest.sort(function (a: any, b: any) {
@@ -225,9 +254,7 @@ function PresetAppointmentDetails({
                             const creneauFin = toZonedTime(creneau.dateFin, TIME_ZONE_ABIDJAN);
 
                             const dateRdvCreneau = format(creneauDebut, 'dd MMMM yyyy', {locale: language === 'en' ? enUS : fr,});
-
                             const startTime = format(creneauDebut, 'p', {locale: language === 'en' ? enUS : fr,});
-
                             const endTime = format(creneauFin, 'p', {locale: language === 'en' ? enUS : fr,});
                             creneauRdvData = {
                                 dateAppointmentSlot: dateRdvCreneau,
@@ -240,16 +267,16 @@ function PresetAppointmentDetails({
                         },
                     );
 
-                    /*let creneauRdvChoiceFind = creneauRdvListRequest.find(
-                        (crenau: any) => crenau?.creneauRdvEnfantParents[0]?.enfantId === selectedChild?.person?.id && crenau?.creneauRdvEnfantParents[0]?.parentId === user?.userDetails?.personDetails?.person?.id,
-                    );*/
                     let creneauRdvChoiceFind = creneauRdvListRequest.find(
                         (crenau: any) => crenau?.creneauRdvEnfantParents[0]?.enfantId === selectedChild?.person?.id
                     );
 
-                    if(creneauRdvChoiceFind !== undefined) {
-                        setCreneauRdvChoiceSelect(creneauRdvChoiceFind);
-                    }
+                    // Choix affiché uniquement s'il est confirmé (et disparaît après une annulation)
+                    setCreneauRdvChoiceSelect(
+                        creneauRdvChoiceFind?.creneauRdvEnfantParents[0]?.meetingStatus === 'CONFIRM'
+                            ? creneauRdvChoiceFind
+                            : undefined,
+                    );
 
                     let creneauRdvAvailable: any = [];
                     creneauRdvAvailable = creneauRdvListRequest.filter(
@@ -285,7 +312,7 @@ function PresetAppointmentDetails({
                     <View style={styles.appointmentDetails}>
                         <View style={styles.appointmentInfoContainer}>
                             <View style={{flexDirection: 'row'} as StyleSheet}>
-                                <View
+                               {/* <View
                                     style={{
                                         ...((appointmentDetailsInRedux.meetingStatus === 'CONFIRM' &&
                                                 styles.validateStatus) ||
@@ -295,7 +322,7 @@ function PresetAppointmentDetails({
                                             (appointmentDetailsInRedux.meetingStatus === 'CANCEL' && styles.cancelStatus)),
                                         marginRight: 10,
                                     }}
-                                />
+                                />*/}
                                 <Text style={{...globalStyles.titleH2, marginRight: 10}}>{appointmentDetailsInRedux.objet}</Text>
                             </View>
 

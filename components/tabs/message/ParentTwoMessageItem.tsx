@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {
     Image,
-    Linking,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -19,6 +18,8 @@ import {
 } from 'date-fns';
 import {useTranslation} from 'react-i18next';
 import {fr, enUS} from 'date-fns/locale';
+import Loading from "../../ui/Loading";
+import FileDownloadService, {MessageFileType} from "../../../services/FileDownloadService";
 
 const ParentTwoMessageItem = ({ message, parentChoice=1 } : { message: any, parentChoice?: number}) => {
     const {t, i18n} = useTranslation();
@@ -29,6 +30,10 @@ const ParentTwoMessageItem = ({ message, parentChoice=1 } : { message: any, pare
     )}:${String(getMinutes(messageDate)).padStart(2, '0')}`;
     const [displayDate, setDisplayDate] = useState('');
     const locale = i18n.language === 'en' ? enUS : fr;
+    // Un seul état suffit : un message donné n'a jamais qu'une seule pièce
+    // jointe (image OU document, jamais les deux à la fois), donc les deux
+    // blocs ci-dessous ne peuvent pas être en téléchargement en même temps.
+    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         const theDay = format(messageDate, 'P', {locale: locale});
@@ -43,6 +48,21 @@ const ParentTwoMessageItem = ({ message, parentChoice=1 } : { message: any, pare
             setDisplayDate(t('message.yesterday'));
         }
     }, []);
+
+    // Remplace l'ancien Linking.openURL (qui se contentait d'ouvrir le
+    // fichier dans le navigateur) par un vrai téléchargement + enregistrement
+    // sur l'appareil — voir FileDownloadService pour le détail par type de
+    // fichier (image -> galerie, document -> feuille de partage native).
+    const handleDownload = async (fileType: MessageFileType, suggestedName?: string) => {
+        if (!message?.fichier || downloading) return;
+        setDownloading(true);
+        await FileDownloadService.downloadMessageFile(
+            `${BASEURL_IMG}/${message.fichier}`,
+            fileType,
+            suggestedName,
+        );
+        setDownloading(false);
+    };
 
     return (
         <TouchableOpacity
@@ -77,13 +97,15 @@ const ParentTwoMessageItem = ({ message, parentChoice=1 } : { message: any, pare
                                     resizeMode="cover"
                                     style={styles.imageInMessage}
                                 />
-                                <Text
-                                    style={{color: COLORS.white}}
-                                    onPress={() =>
-                                        Linking.openURL(`${BASEURL_IMG}/${message?.fichier}`)
-                                    }>
-                                    {message?.nomFichier}
-                                </Text>
+                                {downloading ? (
+                                    <Loading size="small" />
+                                ) : (
+                                    <Text
+                                        style={{color: COLORS.white}}
+                                        onPress={() => handleDownload('image', message?.nomFichier)}>
+                                        {message?.nomFichier}
+                                    </Text>
+                                )}
                             </>
                         )}
 
@@ -92,13 +114,15 @@ const ParentTwoMessageItem = ({ message, parentChoice=1 } : { message: any, pare
                         message?.typeFichier === 'document' &&
                         message?.fichier !== '' &&
                         message?.fichier !== null && (
-                            <Text
-                                style={{color: COLORS.white}}
-                                onPress={() =>
-                                    Linking.openURL(`${BASEURL_IMG}/${message?.fichier}`)
-                                }>
-                                {message?.fichier}
-                            </Text>
+                            downloading ? (
+                                <Loading size="small" />
+                            ) : (
+                                <Text
+                                    style={{color: COLORS.white}}
+                                    onPress={() => handleDownload('document', message?.fichier)}>
+                                    {message?.fichier}
+                                </Text>
+                            )
                         )}
                 </View>
                 <View style={styles.timeTextSend}>
@@ -232,4 +256,3 @@ const styles = StyleSheet.create({
         //borderColor: COLORS.grayVeryLight,
     },
 });
-

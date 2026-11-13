@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
     View,
     Text,
@@ -7,19 +7,20 @@ import {
     KeyboardAvoidingView,
     TextInput,
     TouchableOpacity,
-    ScrollView
+    FlatList
 } from "react-native";
+import {useFocusEffect} from '@react-navigation/native';
 import ViewThemed from "../../../../components/ui/ViewThemed";
 import {globalStyles} from "../../../../style/Global";
-import Loading from "../../../../components/ui/Loading";
 import {useTranslation} from "react-i18next";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import {COLORS} from "../../../../constants";
 import {MaterialIcons} from "@expo/vector-icons";
 import AppointmentItem from "../../../../components/tabs/appointment/AppointmentItem";
 import AppointmentForm from "../../../../components/tabs/appointment/AppointmentForm";
 import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
-import FloatingButton from "../../../../components/ui/FloatingButton";
+import AppointmentService from "../../../../services/AppointmentService";
+import {setAllAppointmentList} from "../../../../redux/features/appointment/appointmentSlice";
 import * as yup from 'yup';
 import FlatButton from "../../../../components/ui/FlatButton";
 
@@ -32,60 +33,86 @@ const AppointmentHome = (props) => {
     const [addModal, setAddModal] = useState(false);
     const {t} = useTranslation();
     const {selectedChild} = useSelector((state: any) => state.child);
-    const {teacherSelected, employeesClassList} = useSelector(
+    const {employeesClassList} = useSelector(
         (state: any) => state.employee,
     );
     const {allAppointmentList} = useSelector((state: any) => state.appointment);
     const [teacherDest, setTeacherDest] = useState<any>(null);
     const [search, setSearch] = useState('');
-    const [appointmentList, setAppointmentList] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // ✅ Initialisé directement depuis Redux (déjà disponible de façon
+    // synchrone) au lieu de partir d'un tableau vide en attendant un faux
+    // "loading" : le contenu s'affiche dès le premier rendu.
+    const [appointmentList, setAppointmentList] = useState(allAppointmentList);
     const {snackbarShowMessage} = props;
+    const dispatch = useDispatch();
 
-    const handleSearchAppointment = () => {
+    // Garde le même comportement qu'avant : la recherche ne filtre qu'à la
+    // validation (onSubmitEditing), pas à chaque frappe. On resynchronise
+    // simplement sur la liste Redux quand elle change, sans passer par un
+    // état "loading" (aucune opération asynchrone n'a lieu ici).
+    useEffect(() => {
+        setAppointmentList(allAppointmentList);
+    }, [allAppointmentList]);
+
+    // ✅ Ce tab lisait uniquement "allAppointmentList" depuis Redux, sans
+    // jamais la rafraîchir lui-même : la liste ne se mettait à jour que si
+    // l'écran d'accueil (Home) avait été visité et avait relancé son propre
+    // chargement. En rechargeant directement ici à chaque focus de l'onglet
+    // (useFocusEffect), la liste des rendez-vous est à jour même si on
+    // arrive sur cet onglet sans passer par l'accueil.
+    const fetchAppointments = useCallback(async () => {
+        if (!selectedChild) return;
+        try {
+            const allRdvListSort = await AppointmentService.getAllAppointment(selectedChild.person.id);
+            dispatch(setAllAppointmentList(allRdvListSort || []));
+        } catch (error) {
+            console.log(error);
+        }
+    }, [selectedChild, dispatch]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchAppointments();
+        }, [fetchAppointments])
+    );
+
+    const handleSearchAppointment = useCallback(() => {
         if (search !== '') {
-            setLoading(true);
-            let filterAppointmentList = allAppointmentList.filter(function (
-                item: any,
-            ) {
-                const itemLowerCase: any = item.objet;
-                return itemLowerCase.toLowerCase().includes(search.toLowerCase());
-            });
-
+            const searchLower = search.toLowerCase();
+            const filterAppointmentList = allAppointmentList.filter((item: any) =>
+                (item.objet ?? '').toLowerCase().includes(searchLower)
+            );
             setAppointmentList(filterAppointmentList);
-            setLoading(false);
         } else {
             setAppointmentList(allAppointmentList);
         }
-    };
+    }, [search, allAppointmentList]);
 
-    const handleClearSearch = () => {
+    const handleClearSearch = useCallback(() => {
         setSearch('');
         setAppointmentList(allAppointmentList);
-    };
-
-    useEffect(() => {
-        const fetchData = () => {
-            try {
-                setLoading(true);
-                setAppointmentList(allAppointmentList);
-                setLoading(false);
-            }
-            catch (error) {
-                console.log('Error fetching data:', error);
-            }
-        };
-        fetchData();
     }, [allAppointmentList]);
 
-    if (loading) {
-        return <Loading />;
-    }
+    const handleOpenAddModal = useCallback(() => {
+        setTeacherDest(null);
+        setAddModal(true);
+    }, []);
+
+    const renderItem = useCallback(({item}: {item: any}) => (
+        <AppointmentItem
+            data={item}
+            snackbarShowMessage={snackbarShowMessage}
+        />
+    ), [snackbarShowMessage]);
+
+    const keyExtractor = useCallback((item: any, index: number) => (
+        String(item?.id ?? index)
+    ), []);
 
     return (
-        <ViewThemed style={{...globalStyles.container}}>
-            <View style={{paddingTop: 20, paddingBottom:20, backgroundColor: COLORS.grayExtraLight}}>
-                <View style={{paddingHorizontal:40}}>
+        <ViewThemed style={globalStyles.container}>
+            <View style={styles.headerBar}>
+                <View style={styles.headerButtonWrapper}>
                     <FlatButton
                         title={t('allAppointment.take_appointment')}
                         fontWeight="500"
@@ -93,19 +120,15 @@ const AppointmentHome = (props) => {
                         backgroundColor={COLORS.secondary}
                         paddingVertical={10}
                         borderRadius={20}
-                        onPress={() => {
-                            setTeacherDest(null);
-                            setAddModal(true);
-                        }}
+                        onPress={handleOpenAddModal}
                         disabled={false}
                     />
                 </View>
             </View>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}} enabled={true}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexOne} enabled={true}>
                 <View style={styles.container}>
                     <View style={styles.searchContainer}>
                         <View style={styles.searchBar}>
-                            {/* <MaterialIcons name="search" size={20} color={COLORS.gray} /> */}
                             {/* @ts-ignore*/}
                             <TextInput
                                 style={styles.input}
@@ -113,56 +136,47 @@ const AppointmentHome = (props) => {
                                 placeholderTextColor={COLORS.gray}
                                 {...inputProps}
                                 value={search}
-                                onChangeText={(text: any) => setSearch(text)}
-                                onSubmitEditing={() => handleSearchAppointment()}
+                                onChangeText={setSearch}
+                                onSubmitEditing={handleSearchAppointment}
                                 inputMode={'search'}
                             />
-                            <TouchableOpacity onPress={() => handleClearSearch()}>
+                            <TouchableOpacity onPress={handleClearSearch}>
                                 <MaterialIcons name="close" size={18} color={COLORS.gray} />
                             </TouchableOpacity>
                         </View>
                     </View>
 
-                    <ScrollView style={styles.listContainer}>
-                        {appointmentList?.length > 0 &&
-                            appointmentList.map((appointment: any) => (
-                                <AppointmentItem
-                                    key={appointment?.id}
-                                    data={appointment}
-                                    snackbarShowMessage={snackbarShowMessage}
-                                />
-                            ))}
-                        {(appointmentList?.length === 0 || false) && (
+                    <FlatList
+                        style={styles.listContainer}
+                        data={appointmentList}
+                        keyExtractor={keyExtractor}
+                        renderItem={renderItem}
+                        initialNumToRender={10}
+                        maxToRenderPerBatch={10}
+                        windowSize={7}
+                        ListEmptyComponent={
                             <View>
-                                <Text style={{textAlign: 'center'} as StyleSheet}>
+                                <Text style={styles.emptyText}>
                                     {t('appointment.empty_appointment')}
                                 </Text>
                             </View>
-                        )}
-
-                        <AppointmentForm
-                            addModal={addModal}
-                            setAddModal={setAddModal}
-                            newAppointmentFormSchema={newAppointmentFormSchema}
-                            teacherDest={teacherDest}
-                            selectedChild={selectedChild}
-                            teacherSelected={teacherSelected}
-                            employeesClassList={employeesClassList}
-                            setTeacherDest={setTeacherDest}
-                            snackbarShowMessage={snackbarShowMessage}
-                        />
-                    </ScrollView>
-
-                    {/*<View style={styles.floatinBtn}>
-                        <FloatingButton
-                            onPress={() => {
-                                setTeacherDest(null);
-                                setAddModal(true);
-                            }}
-                        />
-                    </View>*/}
+                        }
+                    />
                 </View>
             </KeyboardAvoidingView>
+
+            {/* Hors de la FlatList : un Modal rendu dans le footer d'une liste virtualisée
+                empêche l'ouverture du modal imbriqué "Dates réservées" sur iOS */}
+            <AppointmentForm
+                addModal={addModal}
+                setAddModal={setAddModal}
+                newAppointmentFormSchema={newAppointmentFormSchema}
+                teacherDest={teacherDest}
+                selectedChild={selectedChild}
+                employeesClassList={employeesClassList}
+                setTeacherDest={setTeacherDest}
+                snackbarShowMessage={snackbarShowMessage}
+            />
         </ViewThemed>
     );
 };
@@ -170,6 +184,20 @@ const AppointmentHome = (props) => {
 export default withSnackbar(AppointmentHome);
 
 const styles = StyleSheet.create({
+    flexOne: {
+        flex: 1,
+    },
+    headerBar: {
+        paddingTop: 20,
+        paddingBottom: 20,
+        backgroundColor: COLORS.grayExtraLight,
+    },
+    headerButtonWrapper: {
+        paddingHorizontal: 40,
+    },
+    emptyText: {
+        textAlign: 'center',
+    },
     container: {
         flex: 1,
         paddingTop: 0,
@@ -180,11 +208,6 @@ const styles = StyleSheet.create({
         paddingLeft: 10,
         paddingRight: 10,
     },
-    // contentContainer: {
-    //   flex: 1,
-    //   justifyContent: 'center',
-    //   alignItems: 'center',
-    // },
     floatinBtn: {
         width: 43,
         height: 43,

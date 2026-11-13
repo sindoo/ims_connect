@@ -1,18 +1,19 @@
 {
   "expo": {
     "scheme": "imsconnect",
-    "name": "ims_connect",
-    "slug": "ims_connect",
-    "version": "0.0.103",
+    "name": "IMS Connect",
+    "slug": "ims-connect",
+    "version": "0.0.109",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.appstore.IMS",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "IMS Connect a besoin d'accéder à l'appareil photo pour prendre une photo.",
         "UIBackgroundModes": [
           "remote-notification"
         ]
@@ -20,10 +21,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "ims.connect.app",
@@ -32,12 +32,21 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./lib/withFcmNotificationMetaFix.js",
+      "./lib/withStoreVersions.js",
       "expo-router",
       "expo-localization",
       [
@@ -69,8 +78,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/android-icon-background.png",
-          "color": "#ffffff"
+          "icon": "./assets/notification-icon.png",
+          "color": "#d17270"
         }
       ],
       [
@@ -78,13 +87,52 @@
         {
           "ios": {
             "useFrameworks": "dynamic"
+          },
+          "android": {
+            "ndkVersion": "28.0.13004108",
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
-      "./lib/withFcmNotificationMetaFix.js",
-      "expo-image"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-image",
+      "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "IMS Connect a besoin d'accéder à votre photothèque pour choisir ou enregistrer des photos.",
+          "savePhotosPermission": "IMS Connect a besoin d'accéder à votre galerie pour y enregistrer les photos téléchargées.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      "expo-sharing",
+      "./lib/withSentryOptional.js"
     ],
     "extra": {
+      "sentry": {
+        "dsn": "https://3a05533ab8b7255ccc6ecd61fa080fe0@o4512413618864128.ingest.us.sentry.io/4512413714153472",
+        "organization": "ivory-montessori-school",
+        "project": "ims-connect"
+      },
+      "storeVersions": {
+        "ios": {
+          "version": "1.2.8",
+          "buildNumber": "25"
+        },
+        "android": {
+          "version": "0.0.110",
+          "versionCode": 110
+        }
+      },
       "eas": {
         "projectId": "votre-project-id-eas"
       }

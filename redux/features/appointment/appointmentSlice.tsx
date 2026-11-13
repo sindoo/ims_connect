@@ -23,9 +23,10 @@ const getActiveAppointmentList = (state: any) => {
           0,
           0,
       );
+      //allAppointmentList[i]?.meetingStatus === 'CANCEL'
       if (
           meetingDay >= today &&
-          allAppointmentList[i]?.meetingStatus !== 'CANCEL'
+          allAppointmentList[i]?.meetingStatus === 'CONFIRM'
       ) {
         allActiveAppointment.push(allAppointmentList[i]);
       }

@@ -51,39 +51,51 @@ const PresetAppointment = () => {
     };
 
     useEffect(() => {
+        // ✅ AbortController : si `selectedChild` change à nouveau (l'utilisateur
+        // bascule vite entre ses enfants) avant que cette requête ne réponde,
+        // on l'annule au lieu de laisser une réponse obsolète écraser plus
+        // tard les données du nouvel enfant sélectionné.
+        const controller = new AbortController();
+
         const fetchData = async () => {
             try {
                 if (selectedChild !== null) {
-                    const presetAppointment = await AppointmentService.getAllPresetAppointment(selectedChild);
+                    const presetAppointment = await AppointmentService.getAllPresetAppointment(selectedChild, controller.signal);
                     dispatch(setPresetAppointmentList(presetAppointment));
                 }
             }
             catch (error) {
-                console.log(error);
+                if (error?.name !== 'AbortError' && error?.name !== 'CanceledError') {
+                    console.log(error);
+                }
             }
         };
         fetchData().catch(error => {
-            console.log(error)
+            console.log('Preset AAppointment', error)
         });
+
+        return () => {
+            controller.abort();
+        };
     }, [selectedChild]);
 
 
     return (
-        <ViewThemed style={{...globalStyles.container}}>
+        <ViewThemed style={globalStyles.container}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{flex: 1}}
+                style={styles.flexOne}
                 enabled={true}>
                 <View style={styles.container}>
                     <ScrollView style={styles.listContainer}>
                         {presetList.length === 0 && (
-                            <Text style={{textAlign: 'center', color: COLORS.gray} as StyleSheet}>
+                            <Text style={styles.emptyText}>
                                 {t('appointment.empty_appointment')}
                             </Text>
                         )}
 
                         {presetList.length > 0 &&
-                            presetList.map((presetAppointment: any, index: any) => (
+                            presetList.map((presetAppointment: any) => (
                                 <AppointmentItemPreset
                                     key={presetAppointment.id}
                                     data={presetAppointment}
@@ -94,7 +106,7 @@ const PresetAppointment = () => {
                     <Modal
                         visible={addModal}
                         animationType="slide"
-                        style={{marginTop: 100}}>
+                        style={styles.modalWrapper}>
                         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                             <View style={styles.modalContainer}>
                                 <View style={styles.modalHeader}>
@@ -212,7 +224,7 @@ const PresetAppointment = () => {
                                         }}
                                     />
 
-                                    <View style={{...styles.inputField, marginBottom: 40}}>
+                                    <View style={[styles.inputField, styles.inputFieldLast]}>
                                         <Text style={styles.modalInputLabel}>
                                             {t('allAppointment.endtime_field_label')}
                                         </Text>
@@ -248,7 +260,7 @@ const PresetAppointment = () => {
                                         onPress={() => {}}
                                         disabled
                                     />
-                                    <View style={{marginTop: 20}} />
+                                    <View style={styles.footerSpacer} />
                                 </ScrollView>
                             </View>
                         </TouchableWithoutFeedback>
@@ -262,6 +274,22 @@ const PresetAppointment = () => {
 export default PresetAppointment;
 
 const styles = StyleSheet.create({
+    flexOne: {
+        flex: 1,
+    },
+    emptyText: {
+        textAlign: 'center',
+        color: COLORS.gray,
+    },
+    modalWrapper: {
+        marginTop: 100,
+    },
+    inputFieldLast: {
+        marginBottom: 40,
+    },
+    footerSpacer: {
+        marginTop: 20,
+    },
     container: {
         flex: 1,
         paddingTop: 15,

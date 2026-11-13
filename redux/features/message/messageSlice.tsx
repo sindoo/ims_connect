@@ -14,13 +14,13 @@ const messageSlice = createSlice({
     },
     updateDiscussionTreadList: (state, action) => {
       state.discussionTreadList = state.discussionTreadList.map(
-        (discussionThread: any) => {
-          if (discussionThread.id === action.payload.id) {
-            return action.payload;
-          } else {
-            return discussionThread;
-          }
-        },
+          (discussionThread: any) => {
+            if (discussionThread.id === action.payload.id) {
+              return action.payload;
+            } else {
+              return discussionThread;
+            }
+          },
       );
     },
     addNewDiscussionTreadToList: (state, action) => {

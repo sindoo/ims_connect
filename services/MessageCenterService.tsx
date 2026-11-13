@@ -24,9 +24,9 @@ type DiscussionListUpdateHandler = (discussionList: any[]) => void;
 export function MessageCenterService() {
   let spacesSubscription: StompSubscription | null = null;
 
-  const createStompClient = (): Client => {
+  const createStompClient = (tokenParent): Client => {
     return new Client({
-      brokerURL: `${BASEURL_SOCKET}/ws`,
+      brokerURL: `${BASEURL_SOCKET}/ws?token=${tokenParent}`,
       connectHeaders: {},
       debug: (str: string) => console.log(str),
       reconnectDelay: 5000,

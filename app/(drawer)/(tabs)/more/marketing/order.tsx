@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from 'react';
-import {ScrollView, View, Text, StyleSheet} from "react-native";
+import React, {useCallback, useEffect, useState} from 'react';
+import {FlatList, View, Text, StyleSheet} from "react-native";
 import {TMarketingProps} from "../../../../../lib/type/TMarketingProps";
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
@@ -19,11 +19,9 @@ function Order({navigation}: TMarketingProps) {
 
     useEffect(() => {
         const fetchData = async () => {
-            if(selectedChild !== null) {
-                setLoading(true);
+            if (selectedChild !== null) {
                 const userProductList = await MarketingService.getUserProduct(selectedChild.person.id);
                 dispatch(setUserOderList(userProductList));
-                setLoading(false);
             }
             setLoading(false);
         };
@@ -33,30 +31,36 @@ function Order({navigation}: TMarketingProps) {
         });
     }, [selectedChild]);
 
+    const renderOrderItem = useCallback(({item}: {item: any}) => (
+        <UserProductItem data={item?.produit} />
+    ), []);
+    // ✅ Utilise l'id reel de la commande plutot que l'index du tableau
+    // comme cle : avec l'index, un reordonnancement/ajout/suppression dans
+    // userOrderList pouvait faire reutiliser le mauvais composant pour la
+    // mauvaise commande (React se base sur la cle pour la reconciliation).
+    const keyExtractorOrder = useCallback((item: any, index: number) => (
+        item?.id != null ? String(item.id) : `order-${index}`
+    ), []);
+    const ListEmptyComponent = useCallback(() => (
+        <View>
+            <Text style={styles.emptyText}>
+                {t('more.empty_product')}
+            </Text>
+        </View>
+    ), [t]);
+
     if(loading) {
         return <Loading />;
     }
     return (
         <View style={globalStyles.container}>
-            <ScrollView style={styles.listContainer}>
-                {(userOrderList.length === 0 || false) && (
-                    <View>
-                        <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                            {t('more.empty_product')}
-                        </Text>
-                    </View>
-                )}
-
-                {userOrderList.length > 0 &&
-                    userOrderList.map((data: any, index: number) => {
-                        return (
-                            <UserProductItem
-                                key={index}
-                                data={data?.produit}
-                            />
-                        );
-                    })}
-            </ScrollView>
+            <FlatList
+                style={styles.listContainer}
+                data={userOrderList}
+                renderItem={renderOrderItem}
+                keyExtractor={keyExtractorOrder}
+                ListEmptyComponent={ListEmptyComponent}
+            />
         </View>
     );
 }
@@ -68,5 +72,9 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 10,
         paddingTop: 20,
+    },
+    emptyText: {
+        flex: 1,
+        textAlign: 'center',
     },
 });

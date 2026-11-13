@@ -1,12 +1,15 @@
-import React, {useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import ViewThemed from "../../../../components/ui/ViewThemed";
 import {View, Text, ScrollView, StyleSheet} from "react-native";
+import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from "../../../../style/Global";
 import {useTranslation} from "react-i18next";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import {COLORS} from "../../../../constants";
 import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
 import AppointmentItem from "../../../../components/tabs/appointment/AppointmentItem";
+import AppointmentService from "../../../../services/AppointmentService";
+import {setAllAppointmentList} from "../../../../redux/features/appointment/appointmentSlice";
 import * as yup from "yup";
 import AppointmentForm from "../../../../components/tabs/appointment/AppointmentForm";
 import FlatButton from "../../../../components/ui/FlatButton";
@@ -23,15 +26,45 @@ const UpcomingAppointment = (props) => {
     );
     const [addModal, setAddModal] = useState(false);
     const {selectedChild} = useSelector((state: any) => state.child);
-    const {teacherSelected, employeesClassList} = useSelector(
+    const {employeesClassList} = useSelector(
         (state: any) => state.employee,
     );
     const [teacherDest, setTeacherDest] = useState<any>(null);
+    const dispatch = useDispatch();
+
+    // ✅ Évite de recréer cette fonction (et de forcer un re-rendu de
+    // FlatButton si jamais il est mémoïsé) à chaque rendu du parent.
+    const handleOpenAddModal = useCallback(() => {
+        setTeacherDest(null);
+        setAddModal(true);
+    }, []);
+
+    // ✅ Cet écran ne lisait que "todayListAppointments" /
+    // "upcomingListAppointments" depuis Redux, sans jamais les rafraîchir
+    // lui-même : leur contenu ne se mettait à jour que si l'écran d'accueil
+    // avait relancé son propre chargement. On recharge ici directement à
+    // chaque focus de cet onglet, pour que la liste soit à jour même en y
+    // arrivant sans passer par l'accueil.
+    const fetchAppointments = useCallback(async () => {
+        if (!selectedChild) return;
+        try {
+            const allRdvListSort = await AppointmentService.getAllAppointment(selectedChild.person.id);
+            dispatch(setAllAppointmentList(allRdvListSort || []));
+        } catch (error) {
+            console.log(error);
+        }
+    }, [selectedChild, dispatch]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchAppointments();
+        }, [fetchAppointments])
+    );
 
     return (
-        <ViewThemed style={{...globalStyles.container}}>
-            <View style={{paddingTop: 20, paddingBottom:20, backgroundColor: COLORS.grayExtraLight}}>
-                <View style={{paddingHorizontal:40}}>
+        <ViewThemed style={globalStyles.container}>
+            <View style={styles.headerBar}>
+                <View style={styles.headerButtonWrapper}>
                     <FlatButton
                         title={t('allAppointment.take_appointment')}
                         fontWeight="500"
@@ -39,10 +72,7 @@ const UpcomingAppointment = (props) => {
                         backgroundColor={COLORS.secondary}
                         paddingVertical={10}
                         borderRadius={20}
-                        onPress={() => {
-                            setTeacherDest(null);
-                            setAddModal(true);
-                        }}
+                        onPress={handleOpenAddModal}
                         disabled={false}
                     />
                 </View>
@@ -50,7 +80,7 @@ const UpcomingAppointment = (props) => {
 
             <ScrollView style={styles.container}>
                 <View style={styles.todayAppointmentContainer}>
-                    <Text style={{...globalStyles.title}}>
+                    <Text style={globalStyles.title}>
                         {t('upcomingAppointment.today')}
                     </Text>
                     {todayListAppointments.length > 0 &&
@@ -61,9 +91,9 @@ const UpcomingAppointment = (props) => {
                                 snackbarShowMessage={snackbarShowMessage}
                             />
                         ))}
-                    {(todayListAppointments.length === 0 || false) && (
+                    {todayListAppointments.length === 0 && (
                         <View>
-                            <Text style={{textAlign: 'center'} as StyleSheet}>
+                            <Text style={styles.emptyText}>
                                 {t('appointment.empty_appointment')}
                             </Text>
                         </View>
@@ -71,7 +101,7 @@ const UpcomingAppointment = (props) => {
                 </View>
 
                 <View style={styles.upcomingAppContainer}>
-                    <Text style={{...globalStyles.title}}>
+                    <Text style={globalStyles.title}>
                         {t('upcomingAppointment.upcoming')}
                     </Text>
                     {upcomingListAppointments.length > 0 &&
@@ -82,9 +112,9 @@ const UpcomingAppointment = (props) => {
                                 snackbarShowMessage={snackbarShowMessage}
                             />
                         ))}
-                    {(upcomingListAppointments.length === 0 || false) && (
+                    {upcomingListAppointments.length === 0 && (
                         <View>
-                            <Text style={{textAlign: 'center'} as StyleSheet}>
+                            <Text style={styles.emptyText}>
                                 {t('appointment.empty_appointment')}
                             </Text>
                         </View>
@@ -97,7 +127,6 @@ const UpcomingAppointment = (props) => {
                     newAppointmentFormSchema={newAppointmentFormSchema}
                     teacherDest={teacherDest}
                     selectedChild={selectedChild}
-                    teacherSelected={teacherSelected}
                     employeesClassList={employeesClassList}
                     setTeacherDest={setTeacherDest}
                     snackbarShowMessage={snackbarShowMessage}
@@ -110,6 +139,17 @@ const UpcomingAppointment = (props) => {
 export default withSnackbar(UpcomingAppointment);
 
 const styles = StyleSheet.create({
+    headerBar: {
+        paddingTop: 20,
+        paddingBottom: 20,
+        backgroundColor: COLORS.grayExtraLight,
+    },
+    headerButtonWrapper: {
+        paddingHorizontal: 40,
+    },
+    emptyText: {
+        textAlign: 'center',
+    },
     container: {
         flex: 1,
         backgroundColor: COLORS.white,

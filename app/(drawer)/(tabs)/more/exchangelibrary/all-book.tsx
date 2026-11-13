@@ -20,21 +20,21 @@ import SearchBox from "../../../../../components/ui/SearchBox";
 import BookItem from "../../../../../components/tabs/more/exchangelibray/BookItem";
 import BookDetails from "../../../../../components/tabs/more/exchangelibray/BookDetails";
 
-const ITEM_PER_PAGE = 50;
-const SEARCH_DEBOUNCE_DELAY = 1000;
-const MAX_VISIBLE_ITEMS = 15;
+const ITEM_PER_PAGE = 20;
+const ACCENT_REGEX = /[\u0300-\u036f]/g;
+
+// ✅ Types de requêtes pour le token
+type RequestType = 'init' | 'search' | 'pagination' | 'clear';
 
 function AllBook(props) {
     const {snackbarShowMessage} = props;
     const {t} = useTranslation();
     const dispatch = useDispatch();
 
-    // Redux selectors
-    const {childBorrowedBooksList, childHistoryBooksList} = useSelector((state: any) => state.book);
+    const {childBorrowedBooksList} = useSelector((state: any) => state.book);
     const {selectedChild} = useSelector((state: any) => state.child);
     const {user, userToken} = useSelector((state: any) => state.user);
 
-    // State
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
@@ -47,52 +47,134 @@ function AllBook(props) {
     const [bookCategory, setBookCategory] = useState<any>('');
     const [dataBook, setDataBook] = useState<any>(null);
     const [bookDetail, setBookDetail] = useState(false);
+    const [categoryCache, setCategoryCache] = useState<Map<number, string>>(new Map());
 
-    // Refs
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // ✅ STATE qui contrôle physiquement onEndReached + affichage
+    const [isSearchMode, setIsSearchMode] = useState(false);
+
+    // ✅ STATE "displayMode" : garantit qu'on ne peut PAS afficher les livres "normaux"
+    // tant qu'on est en mode recherche
+    const [displayMode, setDisplayMode] = useState<'browse' | 'search'>('browse');
+
     const flatListRef = useRef<FlatList>(null);
     const bookStatusCache = useRef<Map<string, [boolean, boolean]>>(new Map());
+    const isInitializedRef = useRef(false);
+    const isLoadingMoreRef = useRef(false);
 
-    // Check if book is already borrowed avec cache
+    // ═══════════════════════════════════════════════════════════════════
+    // ✅ COEUR DE LA SOLUTION : Token unique pour CHAQUE requête
+    // ═══════════════════════════════════════════════════════════════════
+    // Chaque requête (init, search, pagination, clear) obtient un ID unique.
+    // Après chaque "await", on vérifie que notre ID est toujours le "dernier".
+    // Si non → on JETTE la réponse sans toucher au state.
+    // ═══════════════════════════════════════════════════════════════════
+    const requestTokenRef = useRef<{ id: number; type: RequestType }>({
+        id: 0,
+        type: 'init'
+    });
+
+    const startRequest = useCallback((type: RequestType): number => {
+        const id = ++requestTokenRef.current.id;
+        requestTokenRef.current = { id, type };
+        return id;
+    }, []);
+
+    const isTokenValid = useCallback((id: number): boolean => {
+        return requestTokenRef.current.id === id;
+    }, []);
+
+    // ✅ Verrou pour pagination (ref = synchrone)
+    const paginationLockedRef = useRef(false);
+
+    const normalizeString = useCallback((str: string) => {
+        if (!str) return '';
+        return str.normalize('NFD').replace(ACCENT_REGEX, '').toLowerCase();
+    }, []);
+
+    const compareFrench = useCallback((a: string, b: string) => {
+        if (!a && !b) return 0;
+        if (!a) return 1;
+        if (!b) return -1;
+        const na = normalizeString(a);
+        const nb = normalizeString(b);
+        if (na < nb) return -1;
+        if (na > nb) return 1;
+        return 0;
+    }, [normalizeString]);
+
+    const sortBooksByNom = useCallback((books: any[]) => {
+        if (!books || books.length === 0) return books;
+        return [...books].sort((a: any, b: any) => compareFrench(a?.nom || '', b?.nom || ''));
+    }, [compareFrench]);
+
+    const preloadCategories = useCallback(async (books: any[]) => {
+        const categoryIds = [...new Set(books
+            .map((b: any) => b?.livreCategorieId)
+            .filter((id: any) => id && !categoryCache.has(id))
+        )];
+        if (categoryIds.length === 0) return;
+        try {
+            const promises = categoryIds.map((id: number) =>
+                ExchangeLibraryService.getCategoryBookById(id)
+            );
+            const results = await Promise.all(promises);
+            setCategoryCache(prev => {
+                const newMap = new Map(prev);
+                categoryIds.forEach((id: number, index: number) => {
+                    if (results[index]?.nom) newMap.set(id, results[index].nom);
+                });
+                return newMap;
+            });
+        } catch (error) {
+            console.log('Preload categories error:', error);
+        }
+    }, [categoryCache]);
+
     const checkBorrowBook = useCallback((selectedChildId: number, book: any, borrowList: any) => {
-        const cacheKey = `${selectedChildId}-${book.id}-${borrowList.length}`;
-
+        const cacheKey = `${selectedChildId}-${book.id}`;
         if (bookStatusCache.current.has(cacheKey)) {
             return bookStatusCache.current.get(cacheKey)!;
         }
-
         let isBookUnavailable = false;
         let isBorrowedByChild = false;
-
         for (let i = 0; i < borrowList.length; i++) {
             if (borrowList[i].livreId === book.id) {
-                if (borrowList[i].enfantId === selectedChildId) {
-                    isBorrowedByChild = true;
-                }
+                if (borrowList[i].enfantId === selectedChildId) isBorrowedByChild = true;
             }
         }
         if (!book.available) {
             isBookUnavailable = true;
             isBorrowedByChild = true;
         }
-
         const result: [boolean, boolean] = [isBookUnavailable, isBorrowedByChild];
         bookStatusCache.current.set(cacheKey, result);
         return result;
     }, []);
 
-    // Load books from API
+    // ✅ CORRECTIF : bookStatusCache est une memoisation manuelle indexee
+    // uniquement par "childId-bookId". Sa validite depend en realite de
+    // "childBorrowedBooksList" (pour isBorrowedByChild) et de
+    // "book.available" (pour isBookUnavailable) - mais rien ne la videait
+    // automatiquement quand "childBorrowedBooksList" changeait (ex: apres le
+    // dispatch redux qui suit un emprunt). Elle n'etait videe qu'a des
+    // endroits precis (recherche, pagination...), pas systematiquement au
+    // bon moment par rapport a ce dispatch : un rendu intermediaire pouvait
+    // mettre en cache le statut "pas encore emprunte", puis ce statut perime
+    // restait en cache meme apres que la liste d'emprunts soit a jour. On la
+    // vide maintenant a chaque changement de "childBorrowedBooksList", ce
+    // qui garantit que le statut affiche est toujours recalcule avec les
+    // donnees a jour - c'est ce qui causait le badge/bouton qui ne se
+    // rafraichissait pas tout seul apres avoir clique sur "Emprunter".
+    useEffect(() => {
+        bookStatusCache.current.clear();
+    }, [childBorrowedBooksList]);
+
     const loadBook = useCallback(async (page: number) => {
         try {
             const bookReq = await ExchangeLibraryService.getBookDataByPageNumber(page, ITEM_PER_PAGE);
             if (bookReq.length > 0) {
                 const [bookList, totalBookItems, totalBookListPage] = bookReq;
-                return {
-                    bookList,
-                    totalBookItems,
-                    totalBookListPage,
-                    status: 200
-                };
+                return { bookList, totalBookItems, totalBookListPage, status: 200 };
             }
             return { status: 400, bookList: [] };
         } catch (error) {
@@ -101,172 +183,237 @@ function AllBook(props) {
         }
     }, []);
 
-    // Fonction pour charger et mettre à jour la liste
-    const fetchBooks = useCallback(async (page: number, append: boolean = false) => {
-        try {
-            const result = await loadBook(page);
-            if (result.status === 200 && result.bookList) {
-                const orderedList = ExchangeLibraryService.orderBookListAsc(result.bookList);
+    /**
+     * ✅ loadMoreBook avec token
+     * Chaque appel génère un NOUVEAU token → invalide automatiquement
+     * toute requête en vol précédente.
+     */
+    const loadMoreBook = useCallback(() => {
+        // 🔒 Vérifications synchrones AVANT de faire quoi que ce soit
+        if (paginationLockedRef.current) return;
+        if (isSearchMode) return;
+        if (search.trim() !== '') return;
+        if (displayMode === 'search') return;
+        if (isLoadingMoreRef.current) return;
+        if (renderLoading) return;
+        if (currentPage >= bookListPages - 1) return;
+        if (booksDataList.length >= totalBook) return;
+        if (totalBook === 0) return;
+        if (bookListPages === 0) return;
 
-                bookStatusCache.current.clear();
+        // ✅ Générer un token pour CETTE pagination
+        const paginationToken = startRequest('pagination');
 
-                if (page === 0 || !append) {
-                    setBooksDataList(orderedList);
-                } else {
-                    setBooksDataList(prev => {
-                        const merged = [...prev, ...orderedList];
-                        return ExchangeLibraryService.orderBookListAsc(merged);
-                    });
-                }
+        isLoadingMoreRef.current = true;
+        setRenderLoading(true);
 
-                if (totalBook === 0 && result.totalBookItems) {
-                    setTotalBook(result.totalBookItems);
-                    setBookListPages(result.totalBookListPage || 0);
-                }
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.log('Fetch books error:', error);
-            return false;
-        }
-    }, [loadBook, totalBook]);
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
 
-    // Load more books for pagination
-    const loadMoreBook = useCallback(async () => {
-        if (search !== '' || renderLoading) return;
-
-        if (currentPage < bookListPages - 1 && booksDataList.length < totalBook) {
-            setRenderLoading(true);
-            const nextPage = currentPage + 1;
-            setCurrentPage(nextPage);
-            const success = await fetchBooks(nextPage, true);
-            setRenderLoading(false);
-        }
-    }, [search, renderLoading, currentPage, bookListPages, booksDataList.length, totalBook, fetchBooks]);
-
-    // Handle search with debounce
-    const handleTextChange = useCallback(async (text: string) => {
-        try {
-            setSearch(text);
-
-            if (text.trim() === '') {
-                setSearchLoading(true);
-                setCurrentPage(0);
-                setTotalBook(0);
-                bookStatusCache.current.clear();
-                await fetchBooks(0, false);
-                setSearchLoading(false);
+        setTimeout(async () => {
+            // 🔒 Re-vérifier AVANT le réseau
+            if (!isTokenValid(paginationToken)) {
+                isLoadingMoreRef.current = false;
+                setRenderLoading(false);
                 return;
             }
 
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-            }
+            try {
+                const result = await loadBook(nextPage);
 
-            searchTimeoutRef.current = setTimeout(async () => {
-                try {
-                    setSearchLoading(true);
-                    const toEncode = {
-                        filters: [{
-                            key: "nom",
-                            operator: "CONTAIN",
-                            field_type: "STRING",
-                            value: text
-                        }]
-                    };
-                    const base64 = btoa(JSON.stringify(toEncode));
-
-                    let listBookSearch = await ExchangeLibraryService.getSearchBookData(base64, text);
-                    listBookSearch = ExchangeLibraryService.orderBookListAsc(listBookSearch);
-                    bookStatusCache.current.clear();
-                    setBooksDataList(listBookSearch);
-                    setTotalBook(listBookSearch.length);
-                } catch (error) {
-                    console.log('Search error:', error);
-                } finally {
-                    setSearchLoading(false);
+                // 🔒 Vérifier APRÈS le réseau
+                if (!isTokenValid(paginationToken)) {
+                    isLoadingMoreRef.current = false;
+                    setRenderLoading(false);
+                    return;
                 }
-            }, SEARCH_DEBOUNCE_DELAY);
-        } catch (error) {
-            console.log('Handle text change error:', error);
-            setSearchLoading(false);
-        }
-    }, [fetchBooks]);
 
-    // Handle search submit
+                if (result.status === 200 && result.bookList && result.bookList.length > 0) {
+                    await preloadCategories(result.bookList);
+
+                    // 🔒 Vérifier APRÈS preloadCategories
+                    if (!isTokenValid(paginationToken)) {
+                        isLoadingMoreRef.current = false;
+                        setRenderLoading(false);
+                        return;
+                    }
+
+                    const orderedList = sortBooksByNom(result.bookList);
+                    bookStatusCache.current.clear();
+
+                    setBooksDataList(prev => {
+                        // 🔒 Dernière vérification AVANT setState
+                        if (!isTokenValid(paginationToken)) {
+                            return prev; // Ne rien changer
+                        }
+                        const merged = [...prev, ...orderedList];
+                        return sortBooksByNom(merged);
+                    });
+
+                    if (totalBook === 0 && result.totalBookItems) {
+                        setTotalBook(result.totalBookItems);
+                        setBookListPages(result.totalBookListPage || 0);
+                    }
+                } else {
+                    setCurrentPage(currentPage);
+                }
+            } catch (error) {
+                console.log('Load more error:', error);
+                if (isTokenValid(paginationToken)) {
+                    setCurrentPage(currentPage);
+                }
+            } finally {
+                isLoadingMoreRef.current = false;
+                if (isTokenValid(paginationToken)) {
+                    setRenderLoading(false);
+                }
+            }
+        }, 50);
+    }, [isSearchMode, displayMode, search, renderLoading, currentPage, bookListPages, booksDataList.length, totalBook, loadBook, preloadCategories, sortBooksByNom, startRequest, isTokenValid]);
+
     const handleSearchBook = useCallback(async () => {
         if (search.trim() === '') {
             await handleClearSearch();
             return;
         }
 
-        try {
-            setBooksDataList([]);
-            setSearchLoading(true);
+        // ✅ 1. Générer le token de recherche IMMÉDIATEMENT
+        const searchToken = startRequest('search');
 
-            const toEncode = {
+        // ✅ 2. Poser le verrou SYNCHRONEMENT
+        paginationLockedRef.current = true;
+        isLoadingMoreRef.current = false;
+
+        // ✅ 3. Changer les modes (state) — déclenche re-render
+        setIsSearchMode(true);
+        setDisplayMode('search');
+        setSearchLoading(true);
+        setRenderLoading(false);
+
+        try {
+            const dataToSend = {
+                page: 0,
+                size: 20,
+                offset: 0,
                 filters: [{
                     key: "nom",
                     operator: "CONTAIN",
-                    field_type: "STRING",
                     value: search.trim()
-                }]
+                }],
             };
-            const base64 = btoa(JSON.stringify(toEncode));
 
-            let listBookSearch = await ExchangeLibraryService.getSearchBookData(base64, search.trim());
-            listBookSearch = ExchangeLibraryService.orderBookListAsc(listBookSearch);
+            const listBookSearch = await ExchangeLibraryService.getSearchBookData(
+                JSON.stringify(dataToSend),
+                search.trim()
+            );
+
+            // 🔒 Vérifier le token
+            if (!isTokenValid(searchToken)) {
+                return;
+            }
+
+            let sortedList = sortBooksByNom(listBookSearch);
+
+            if (sortedList.length > 0) {
+                await preloadCategories(sortedList);
+            }
+
+            // 🔒 Re-vérifier après preload
+            if (!isTokenValid(searchToken)) {
+                return;
+            }
+
             bookStatusCache.current.clear();
-            setBooksDataList(listBookSearch);
-            setTotalBook(listBookSearch.length);
-        } catch (error) {
-            console.log('Search submit error:', error);
-        } finally {
-            setSearchLoading(false);
-        }
-    }, [search]);
-
-    // Clear search
-    const handleClearSearch = useCallback(async () => {
-        try {
-            setSearch('');
-            setBooksDataList([]);
-            setTotalBook(0);
+            setBooksDataList(sortedList);
+            setTotalBook(sortedList.length);
             setCurrentPage(0);
-            setSearchLoading(true);
-            bookStatusCache.current.clear();
-            await fetchBooks(0, false);
-            setSearchLoading(false);
+            setBookListPages(0);
+
+            flatListRef.current?.scrollToOffset({offset: 0, animated: false});
+        }
+        catch (error) {
+            console.log('Search submit error:', JSON.stringify(error));
+        }
+        finally {
+            // ✅ Ne clear le loading QUE si notre token est toujours valide
+            if (isTokenValid(searchToken)) {
+                setSearchLoading(false);
+            }
+        }
+    }, [search, preloadCategories, sortBooksByNom, startRequest, isTokenValid]);
+
+    const handleClearSearch = useCallback(async () => {
+        // ✅ Token de clear
+        const clearToken = startRequest('clear');
+
+        setSearch('');
+        setTotalBook(0);
+        setCurrentPage(0);
+        setSearchLoading(true);
+
+        // ✅ Changer les modes
+        setIsSearchMode(false);
+        setDisplayMode('browse');
+
+        // ✅ Lever les verrous
+        paginationLockedRef.current = false;
+        isLoadingMoreRef.current = false;
+        setRenderLoading(false);
+        bookStatusCache.current.clear();
+
+        try {
+            const result = await loadBook(0);
+
+            // 🔒 Vérifier
+            if (!isTokenValid(clearToken)) {
+                return;
+            }
+
+            if (result.status === 200 && result.bookList) {
+                if (result.bookList.length > 0) {
+                    await preloadCategories(result.bookList);
+                }
+                if (!isTokenValid(clearToken)) return;
+
+                const orderedList = sortBooksByNom(result.bookList);
+                setBooksDataList(orderedList);
+                if (result.totalBookItems) {
+                    setTotalBook(result.totalBookItems);
+                    setBookListPages(result.totalBookListPage || 0);
+                }
+            }
         } catch (error) {
             console.log('Clear search error:', error);
-            setSearchLoading(false);
+        } finally {
+            if (isTokenValid(clearToken)) {
+                setSearchLoading(false);
+            }
         }
-    }, [fetchBooks]);
+    }, [loadBook, preloadCategories, sortBooksByNom, startRequest, isTokenValid]);
 
-    // Borrow a book
     const handleBorrowBook = useCallback(async (data: any, setBorrowLoadingItem: any) => {
         try {
             if (!selectedChild || !user) return;
-
             const bookBorrowed = await ExchangeLibraryService.borrowABook(selectedChild, user, data);
-
+            // ✅ BUG CORRIGE : "bookBorrowed" est l'enregistrement d'EMPRUNT
+            // renvoye par l'API (il contient bookBorrowed.livre, le livre
+            // lui-meme, en plus de son propre id d'emprunt). Le code
+            // comparait "book.id === bookBorrowed.id" - c'est-a-dire l'id du
+            // LIVRE dans la liste contre l'id de l'EMPRUNT : ça ne
+            // correspondait quasiment jamais, donc aucun livre de la liste
+            // n'etait jamais remplace par sa version a jour (available:
+            // false). Comparaison corrigee sur l'id du livre imbrique.
+            const borrowedBookId = bookBorrowed?.livre?.id ?? bookBorrowed?.id;
             setBooksDataList(prev => {
                 const updated = prev.map((book: any) => {
-                    if (book.id === bookBorrowed.id) {
-                        return bookBorrowed.livre;
-                    }
+                    if (book.id === borrowedBookId) return bookBorrowed.livre;
                     return book;
                 });
-                bookStatusCache.current.clear();
-                return updated;
+                return sortBooksByNom(updated);
             });
-
             setBorrowLoadingItem(false);
-
             const empruntEnfantList = await ExchangeLibraryService.getChildBorrowBooksList(selectedChild.person.id);
             dispatch(setChildBorrowedBooksList(empruntEnfantList));
-
             snackbarShowMessage(t('snackBar.sb_success_save_book'));
         } catch (error: any) {
             setBorrowLoadingItem(false);
@@ -275,76 +422,18 @@ function AllBook(props) {
                 if (msgToDisplay?.codeMessage === 'SIZE_EXCEPTION') {
                     snackbarShowMessage(t('more.book_not_available'));
                 }
-                console.log(msgToDisplay);
             } else {
                 snackbarShowMessage(t('snackBar.sb_error_deadline_exceeded'));
-                console.log(error);
             }
         }
-    }, [selectedChild, user, dispatch, t, snackbarShowMessage]);
+    }, [selectedChild, user, dispatch, t, snackbarShowMessage, sortBooksByNom]);
 
-    // Initial data fetch
-    useEffect(() => {
-        const initializeData = async () => {
-            try {
-                if (!selectedChild) {
-                    setLoading(false);
-                    return;
-                }
-
-                setLoading(true);
-
-                const [empruntEnfantList, booksResult] = await Promise.all([
-                    ExchangeLibraryService.getChildBorrowBooksList(selectedChild.person.id),
-                    loadBook(0)
-                ]);
-
-                if (empruntEnfantList) {
-                    dispatch(setChildBorrowedBooksList(empruntEnfantList));
-                }
-
-                const empruntEnfantHistoryList = await ExchangeLibraryService.getChildBorrowHistoryBooksList(selectedChild.person.id);
-                dispatch(setChildHistoryBooksList(empruntEnfantHistoryList));
-
-                if (booksResult.status === 200 && booksResult.bookList) {
-                    const orderedList = ExchangeLibraryService.orderBookListAsc(booksResult.bookList);
-                    setBooksDataList(orderedList);
-                    if (booksResult.totalBookItems) {
-                        setTotalBook(booksResult.totalBookItems);
-                        setBookListPages(booksResult.totalBookListPage || 0);
-                    }
-                }
-
-                checkTokenExpired(userToken, dispatch);
-            } catch (error) {
-                console.log('Initial fetch error:', error);
-                checkTokenExpired(userToken, dispatch);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        initializeData();
-    }, [selectedChild, loadBook, dispatch, userToken]);
-
-    // Cleanup timeout
-    useEffect(() => {
-        return () => {
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-            }
-            bookStatusCache.current.clear();
-        };
-    }, []);
-
-    // Render book item optimisé
     const renderBookItem = useCallback(({item}: {item: any}) => {
+        if (!item || !item.id) return null;
         const [bookStatus, borrowChildStatus] = checkBorrowBook(
-            selectedChild?.person.id,
-            item,
-            childBorrowedBooksList
+            selectedChild?.person.id, item, childBorrowedBooksList
         );
-
+        const categoryName = categoryCache.get(item?.livreCategorieId) || '';
         return (
             <BookItem
                 key={`book-item-${item.id}`}
@@ -360,33 +449,24 @@ function AllBook(props) {
                 setBookDetail={setBookDetail}
                 setDataBook={setDataBook}
                 setBookCategory={setBookCategory}
+                bookCategoryName={categoryName}
             />
         );
-    }, [selectedChild, childBorrowedBooksList, handleBorrowBook, donor, bookDetail, checkBorrowBook, setDonor, setDataBook, setBookCategory]);
+    }, [selectedChild, childBorrowedBooksList, handleBorrowBook, donor, bookDetail, checkBorrowBook, categoryCache, setDonor, setDataBook, setBookCategory]);
 
-    // Memoize key extractor
     const keyExtractor = useCallback((item: any, index: number) => {
-        return `book-${item.id || index}`;
+        return item?.id ? `book-${item.id}` : `book-${index}`;
     }, []);
 
-    // Memoize getItemLayout
-    const getItemLayout = useCallback((data: any, index: number) => ({
-        length: 120,
-        offset: 120 * index,
-        index,
-    }), []);
-
-    // Render loader
     const renderLoader = useCallback(() => {
-        if (!renderLoading) return null;
+        if (!renderLoading || isSearchMode || displayMode === 'search') return null;
         return (
             <View style={styles.loaderContainer}>
                 <Loading size="small" />
             </View>
         );
-    }, [renderLoading]);
+    }, [renderLoading, isSearchMode, displayMode]);
 
-    // Render search loading
     const renderSearchLoading = useCallback(() => {
         if (!searchLoading) return null;
         return (
@@ -396,12 +476,123 @@ function AllBook(props) {
         );
     }, [searchLoading]);
 
-    // Memoized empty state
-    const isEmpty = useMemo(() => booksDataList.length === 0 && !searchLoading, [booksDataList.length, searchLoading]);
+    const viewabilityConfig = useMemo(() => ({
+        itemVisiblePercentThreshold: 50,
+        minimumViewTime: 500,
+        waitForInteraction: true,
+    }), []);
+
+    const uniqueBooksDataList = useMemo(() => {
+        const seen = new Set();
+        const result = [];
+        for (let i = 0; i < booksDataList.length; i++) {
+            const book = booksDataList[i];
+            if (book?.id && !seen.has(book.id)) {
+                seen.add(book.id);
+                result.push(book);
+            }
+        }
+        return result;
+    }, [booksDataList]);
+
+    useEffect(() => {
+        if (isInitializedRef.current) return;
+        isInitializedRef.current = true;
+
+        const initializeData = async () => {
+            const initToken = startRequest('init');
+            try {
+                if (!selectedChild) {
+                    setLoading(false);
+                    return;
+                }
+                setIsSearchMode(false);
+                setDisplayMode('browse');
+                paginationLockedRef.current = false;
+
+                // ✅ Les 3 appels sont independants les uns des autres
+                // (emprunts en cours, page 0 des livres, historique des
+                // emprunts) : ils sont maintenant lances en parallele au
+                // lieu d'attendre les 2 premiers puis appeler le 3e en
+                // sequence - un aller-retour reseau de moins au demarrage.
+                const [empruntEnfantList, booksResult, empruntEnfantHistoryList] = await Promise.all([
+                    ExchangeLibraryService.getChildBorrowBooksList(selectedChild.person.id),
+                    loadBook(0),
+                    ExchangeLibraryService.getChildBorrowHistoryBooksList(selectedChild.person.id)
+                ]);
+
+                if (!isTokenValid(initToken)) return;
+
+                if (empruntEnfantList) {
+                    dispatch(setChildBorrowedBooksList(empruntEnfantList));
+                }
+
+                let empruntEnfantHistoryListFiltered  = [];
+                if(empruntEnfantHistoryList){
+                    empruntEnfantHistoryListFiltered  = empruntEnfantHistoryList.filter(book => book?.dateRetour !== null);
+                }
+                dispatch(setChildHistoryBooksList(empruntEnfantHistoryListFiltered || []));
+
+                if (booksResult.status === 200 && booksResult.bookList) {
+                    if (booksResult.bookList.length > 0) {
+                        await preloadCategories(booksResult.bookList);
+                    }
+                    if (!isTokenValid(initToken)) return;
+
+                    const orderedList = sortBooksByNom(booksResult.bookList);
+                    setBooksDataList(orderedList);
+                    if (booksResult.totalBookItems) {
+                        setTotalBook(booksResult.totalBookItems);
+                        setBookListPages(booksResult.totalBookListPage || 0);
+                    }
+                }
+                checkTokenExpired(userToken, dispatch);
+            } catch (error) {
+                console.log('Initial fetch error:', error);
+                checkTokenExpired(userToken, dispatch);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initializeData().catch(error => { console.log('Initial fetch error 2:', error)});
+
+        return () => {
+            isInitializedRef.current = false;
+        };
+        // ✅ On ne dépend QUE de l'identifiant réel de l'enfant sélectionné.
+        // ⚠️ Ne PAS remettre loadBook/preloadCategories/sortBooksByNom/startRequest/isTokenValid
+        // ici : ce sont des useCallback dont l'identité change (ex: preloadCategories change
+        // dès qu'une nouvelle catégorie est mise en cache), ce qui redéclenchait cet effet,
+        // remettait isInitializedRef à false, relançait initializeData() en plein milieu
+        // d'une recherche, et donc réinitialisait isSearchMode/displayMode + rechargeait
+        // la page 0 par-dessus les résultats de recherche déjà affichés.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChild?.person?.id]);
+
+    useEffect(() => {
+        return () => {
+            bookStatusCache.current.clear();
+            isLoadingMoreRef.current = false;
+            paginationLockedRef.current = true;
+            // ✅ Invalider toute requête en cours au démontage
+            requestTokenRef.current.id++;
+        };
+    }, []);
 
     if (loading) {
         return <Loading />;
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ✅ LA LIGNE LA PLUS IMPORTANTE : onEndReached n'est attaché QUE
+    // dans le mode "browse" pur. Dès qu'on est en search → undefined.
+    // ═══════════════════════════════════════════════════════════════════
+    const isPaginationEnabled = !isSearchMode
+        && displayMode === 'browse'
+        && search.trim() === '';
+
+    const onEndReachedHandler = isPaginationEnabled ? loadMoreBook : undefined;
 
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -417,7 +608,7 @@ function AllBook(props) {
                 <View style={styles.listWrapper}>
                     {renderSearchLoading()}
 
-                    {isEmpty && !searchLoading && (
+                    {uniqueBooksDataList.length === 0 && !searchLoading && (
                         <View style={styles.emptyContainer}>
                             <Text style={styles.emptyText}>
                                 {t('more.empty_library')}
@@ -425,32 +616,30 @@ function AllBook(props) {
                         </View>
                     )}
 
-                    <FlatList
-                        ref={flatListRef}
-                        style={styles.listContainer}
-                        data={booksDataList}
-                        keyExtractor={keyExtractor}
-                        renderItem={renderBookItem}
-                        onEndReached={loadMoreBook}
-                        onEndReachedThreshold={0.3}
-                        ListFooterComponent={renderLoader}
-                        initialNumToRender={10}
-                        maxToRenderPerBatch={5}
-                        windowSize={5}
-                        updateCellsBatchingPeriod={50}
-                        removeClippedSubviews={true}
-                        getItemLayout={getItemLayout}
-                        extraData={childBorrowedBooksList}
-                        maintainVisibleContentPosition={{
-                            minIndexForVisible: 0,
-                        }}
-                        scrollEventThrottle={16}
-                        showsVerticalScrollIndicator={true}
-                        disableVirtualization={false}
-                        viewabilityConfig={{
-                            itemVisiblePercentThreshold: 50,
-                        }}
-                    />
+                    {uniqueBooksDataList.length > 0 && (
+                        <FlatList
+                            ref={flatListRef}
+                            style={styles.listContainer}
+                            data={uniqueBooksDataList}
+                            keyExtractor={keyExtractor}
+                            renderItem={renderBookItem}
+                            onEndReached={onEndReachedHandler}
+                            onEndReachedThreshold={0.2}
+                            ListFooterComponent={renderLoader}
+                            initialNumToRender={6}
+                            maxToRenderPerBatch={3}
+                            windowSize={5}
+                            updateCellsBatchingPeriod={100}
+                            removeClippedSubviews={true}
+                            extraData={childBorrowedBooksList}
+                            scrollEventThrottle={32}
+                            showsVerticalScrollIndicator={true}
+                            viewabilityConfig={viewabilityConfig}
+                            disableVirtualization={uniqueBooksDataList.length < 15}
+                            keyboardShouldPersistTaps="handled"
+                            onScrollToIndexFailed={() => {}}
+                        />
+                    )}
                 </View>
 
                 {dataBook && (
@@ -472,6 +661,8 @@ export default withSnackbar(AllBook);
 const styles = StyleSheet.create({
     container: {
         paddingTop: 15,
+        flex: 1,
+        backgroundColor: COLORS.white,
     },
     listWrapper: {
         flex: 1,
@@ -480,14 +671,18 @@ const styles = StyleSheet.create({
     listContainer: {
         paddingHorizontal: 10,
         paddingTop: 15,
+        flex: 1,
     },
     loaderContainer: {
         padding: 10,
-        marginTop: 20,
+        marginTop: 10,
+        alignItems: 'center',
     },
     searchLoaderContainer: {
         padding: 16,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     emptyContainer: {
         flex: 1,

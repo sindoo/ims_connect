@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -7,6 +7,8 @@ import {
   View,
 } from 'react-native';
 import {useTranslation} from "react-i18next";
+import {useSelector} from "react-redux";
+import SurveyService from "../../../../services/SurveyService";
 import {format} from "date-fns";
 import {enUS, fr} from "date-fns/locale";
 import {COLORS} from "../../../../constants";
@@ -20,17 +22,17 @@ function SurveyItem(props: any) {
     snackbarShowMessage,
   } = props;
   const [surveyStatus, setSurveyStatus] = useState(false);
-  const [surveyStatusResponse, setSurveyStatusResponse] = useState(false);
   const {t, i18n} = useTranslation();
+  const {selectedChild} = useSelector((state: any) => state.child);
+  const {user} = useSelector((state: any) => state.user);
 
-  useEffect(() => {
-    const fetchData = () => {
-      if(survey?.sondageReponseDTOModel?.reponse !== '' && survey?.sondageReponseDTOModel !== null) {
-        setSurveyStatusResponse(true);
-      }
-    };
-    fetchData();
-  }, [survey]);
+  // Calculé directement au rendu (et non via un état mis à jour dans un
+  // useEffect) : le bon bouton s'affiche dès le premier affichage, sans
+  // passer brièvement par « Participer ».
+  const surveyStatusResponse = useMemo(
+    () => !!SurveyService.getParentAnswer(survey, user, selectedChild)?.reponse,
+    [survey, user, selectedChild],
+  );
 
   return (
     <>

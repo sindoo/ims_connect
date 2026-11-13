@@ -96,9 +96,10 @@ class ExchangeLibraryService {
       return books;
   };
   static getSearchBookData = async (filterApi:any, search:string) => {
-      const booksRequest: any = await getRequest('', `/extra/bibliotheque?filter=${filterApi}`);
-      let booksFounded = booksRequest!== undefined
-          ? booksRequest
+      const booksRequest: any = await postRequest('', '/extra/bibliotheque/search', filterApi);
+
+      let booksFounded = booksRequest?.content !== undefined
+          ? booksRequest?.content
           : [];
 
       let bookList:any = [];

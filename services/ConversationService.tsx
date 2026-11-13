@@ -1,7 +1,5 @@
 import {deleteRequest, getAllDiscussionTreadList, putRequest} from "../api/ApiManager";
 import {useSelector} from "react-redux";
-import {BASEURL_MSG_NOTIF} from "../api/appUrl";
-import {getTime} from "date-fns";
 
 class ConversationService {
     static getAllDiscussionList = async (selectedChild: any) => {
@@ -10,7 +8,7 @@ class ConversationService {
     };
     static getUserDiscussionList  = async (dataToSend: any) => {
         let discussionList: any = [];
-        const discussionListReq: any = await putRequest(BASEURL_MSG_NOTIF, '/ws/chat/fildiscussions', dataToSend);
+        const discussionListReq: any = await putRequest('', '/ws/chat/fildiscussions', dataToSend);
         if (discussionListReq !== undefined && discussionListReq !== '' && discussionListReq !== null) {
             discussionList = discussionListReq.sort(function (a: any, b: any) {
                 return a.theDate - b.theDate;
@@ -182,11 +180,6 @@ class ConversationService {
             }
         }
     };
-
-    static getAllDiscussionTreadListByChild = async (selectedChild: any, user: any) => {
-
-
-    }
 }
 
 export default ConversationService;

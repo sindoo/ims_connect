@@ -21,87 +21,82 @@ function BookDetails({data, bookDetail, setBookDetail, donor, bookCategory}: any
   const {t} = useTranslation();
 
   return (
-    <Modal
-      visible={bookDetail}
-      animationType="slide"
-      style={{marginTop: 100}}
-    >
-      <SafeAreaProvider>
-        <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalTitle} />
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                  <MaterialIcons
-                    name="close"
-                    size={28}
-                    color={COLORS.gray}
-                    onPress={() => {
-                      setBookDetail(false);
-                    }}
-                  />
-                </TouchableWithoutFeedback>
-              </View>
-              <ScrollView style={styles.modalContent}>
-                <View style={styles.bookDetailContainer}>
-                  <View style={styles.bookImage}>
-                    <Image
-                      source={
-                        data?.photo !== ''
-                          ? {uri: `${BASEURL_IMG}/${data?.photo}`}
-                          : IMAGES.noBookImage
-                      }
-                      contentFit="cover"
-                      style={styles.bookImageCover}
+      <Modal
+          visible={bookDetail}
+          animationType="slide"
+          style={styles.modalRoot}
+      >
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safeArea}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalTitle} />
+                  <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <MaterialIcons
+                        name="close"
+                        size={28}
+                        color={COLORS.gray}
+                        onPress={() => {
+                          setBookDetail(false);
+                        }}
                     />
-                  </View>
-
-                  <View style={styles.bookInfoDetails}>
-                    <Text style={styles.titleDetail}>{data?.nom} </Text>
-                    <Text
-                      style={{...globalStyles.paragraph, textAlign: 'justify'} as StyleSheet}>
-                      {data?.description}
-                    </Text>
-                    <View style={{marginBottom: 15}} />
-                    <Text
-                      style={{
-                        fontWeight: 'bold',
-                        fontSize: 12,
-                        color: COLORS.gray,
-                      } as StyleSheet}>
-                      {t('more.book_author')} : {data?.auteur}
-                    </Text>
-                    <Text
-                      style={{
-                        fontWeight: 'bold',
-                        fontSize: 12,
-                        color: COLORS.gray,
-                      } as StyleSheet}>
-                      {t('more.book_language')} : {data?.langue}
-                    </Text>
-                    <Text
-                      style={{
-                        fontWeight: 'bold',
-                        fontSize: 12,
-                        color: COLORS.gray,
-                      } as StyleSheet}>
-                      {t('more.category_name')} : {bookCategory}
-                    </Text>
-                  </View>
+                  </TouchableWithoutFeedback>
                 </View>
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
-        </SafeAreaView>
-      </SafeAreaProvider>
-    </Modal>
+                <ScrollView style={styles.modalContent}>
+                  <View style={styles.bookDetailContainer}>
+                    <View style={styles.bookImage}>
+                      <Image
+                          source={
+                            data?.photo !== ''
+                                ? {uri: `${BASEURL_IMG}/${data?.photo}`}
+                                : IMAGES.noBookImage
+                          }
+                          contentFit="cover"
+                          style={styles.bookImageCover}
+                      />
+                    </View>
+
+                    <View style={styles.bookInfoDetails}>
+                      <Text style={styles.titleDetail}>{data?.nom} </Text>
+                      <Text style={styles.description}>
+                        {data?.description}
+                      </Text>
+                      <View style={styles.spacer} />
+                      <Text style={styles.metaText}>
+                        {t('more.book_author')} : {data?.auteur}
+                      </Text>
+                      <Text style={styles.metaText}>
+                        {t('more.book_language')} : {data?.langue}
+                      </Text>
+                      <Text style={styles.metaText}>
+                        {t('more.category_name')} : {bookCategory}
+                      </Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </Modal>
   );
 }
 
-export default BookDetails;
+// Composant memoïsé : sans ça, BookDetails se re-rendait a chaque re-render
+// du parent (AllBook/Borrowing/BorrowingHistory) meme quand la modale est
+// ouverte et qu'aucune de ses props n'a change (ex: pendant le scroll ou la
+// pagination de la liste en arriere-plan).
+export default React.memo(BookDetails);
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    marginTop: 100,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   modalContainer: {
     flex: 1,
     padding: 0,
@@ -148,5 +143,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: COLORS.secondary,
+  },
+  description: {
+    ...globalStyles.paragraph,
+    textAlign: 'justify',
+  },
+  spacer: {
+    marginBottom: 15,
+  },
+  metaText: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    color: COLORS.gray,
   },
 });

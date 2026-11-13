@@ -39,7 +39,10 @@
         "dish": "Dish",
         "dessert": "Dessert",
         "alert_notification": "Notification",
-        "alert_notification_close": "Close"
+        "alert_notification_close": "Close",
+        "alert_load_error": "Unable to load the content",
+        "current_week": "Current week",
+        "next_week": "Next week"
     },
     "myDayAtIms": {
         "title": "My day at IMS",
@@ -85,7 +88,8 @@
         "conversation_public": "Public conversation",
         "conversation_private": "Private conversation",
         "description_public_conversation": "The second parent can interact in the conversation",
-        "description_private_conversation": "The second parent can not interact in the conversation"
+        "description_private_conversation": "The second parent can not interact in the conversation",
+        "conversation_close": "Discussion closed"
     },
     "conversationMessage": {
         "title": "Message",
@@ -145,6 +149,7 @@
         "no_duty": "No duty Saturday and Sunday",
         "no_right_date": "This date is not valid",
         "rdv_date_not_free": "This time slot is already reserved",
+        "no_class_for_child": "No class is linked to this child. Please contact the school.",
         "time_not_available": "Reserved dates",
         "information_dates_not_available": "Information",
         "information_text_dates_not_available": "The list of dates already booked by other parents that can no longer be chosen",
@@ -168,7 +173,15 @@
         "edit_btn": "Edit",
         "date_proposition": "New date proposition",
         "parent": "Parent",
-        "teacher": "Teacher"
+        "teacher": "Teacher",
+        "report_reason_label": "Reason for rescheduling",
+        "report_reason_placeholder": "Explain why you are rescheduling (optional)",
+        "teacher_report_reason": "Interlocutor's reason for rescheduling",
+        "parent_report_reason": "Parent's reason for rescheduling",
+        "cancel_modal_title": "Cancel appointment",
+        "cancel_reason_label": "Reason for cancellation",
+        "cancel_reason_placeholder": "Explain why you are cancelling (optional)",
+        "cancel_confirm_btn": "Confirm cancellation"
     },
     "child_profile": {
         "identity": "Personal Information",
@@ -190,7 +203,10 @@
         "health_issues": "Health issues",
         "emergency_contact": "Emergency contact",
         "first_last_name": "First name/Last name",
-        "image_right": "Image Rights"
+        "image_right": "Image Rights",
+        "required_legend": "Required fields",
+        "invalid_email": "Invalid email address",
+        "min_length": "At least 3 characters"
     },
     "profile_choice": {
         "title": "Child profile choice"
@@ -226,7 +242,15 @@
         "marketing": "Marketing",
         "survey": "Survey",
         "school_document": "School documents",
-        "alertmessage": "Other"
+        "alertmessage": "Other",
+        "delete_success": "Notification deleted succussfully",
+        "delete_error": "Error occurred while trying deleting the notification",
+        "confirm_delete": "Do you confirm the deletion?",
+        "delete": "Delete",
+        "clear_all": "Delete all notification",
+        "confirm_delete_all": "Do you confirm the deletion?",
+        "delete_all_success": "All notifications have been deleted",
+        "delete_all_error": "An error occurred while deleting the notifications"
     },
     "more": {
         "pictures": "My Photos",
@@ -242,7 +266,7 @@
         "exchange_library": "Exchange Library",
         "all_book": "Library",
         "my_borrowings": "Borrowed",
-        "borrow_status": "Borrowed",
+        "borrow_status": "Borrowed by a child",
         "borrow_history": "History",
         "borrow": "Borrow",
         "empty_library": "No book available",
@@ -303,18 +327,33 @@
         "error_loading": "Error loading data",
         "zoom_here": "zoom",
         "unknown": "Unknown",
-        "return_date": "Return date"
+        "return_date": "Return date",
+        "return_deadline": "Due back by"
     },
     "survey": {
         "description_placeholder": "Your opinion",
         "answer": "Answer"
     },
+    "schoolDocument": {
+        "save_title": "Document",
+        "save_message": "The document has been saved to your phone",
+        "download_error_message": "An error occurred while saving the document."
+    },
     "imageChild": {
-        "selected": "selected"
+        "selected": "selected",
+        "access_authorisation_title": "Authorization required",
+        "access_authorisation_message": "Access to your photos is required to save the image.",
+        "save_picture_title": "Photo",
+        "save_picture_message": "The photo has been added to your gallery",
+        "download_msg_error_title": "Download failed",
+        "download_error_message": "An error occurred while saving the photo."
+
     },
     "snackBar": {
         "sb_succes_save": "Successful registration",
+        "sb_succes_cancel": "Successful unregistration",
         "sb_error": "Registration failed",
+        "sb_form_invalid": "Invalid or missing fields",
         "sb_error_delete" : "Delete failed",
         "sb_error_action": "Registration failed",
         "sb_error_username": "Incorrect username",
@@ -326,5 +365,8 @@
     "systemTranslation": {
         "tab_nav_more": "More",
         "features_not_available": "Available soon"
+    },
+    "updateBanner": {
+        "message": "A new version ({{version}}) is available — Update now"
     }
 }

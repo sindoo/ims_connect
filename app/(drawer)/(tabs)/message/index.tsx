@@ -1,4 +1,5 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { AppState, FlatList } from 'react-native';
 import {
     StyleSheet,
     View,
@@ -7,159 +8,293 @@ import {
     Keyboard,
     TouchableOpacity,
     Text,
-    AppState,
-    FlatList,
 } from 'react-native';
-import {Client} from '@stomp/stompjs';
-import TextEncodingPolyfill from 'text-encoding';
-import {useTranslation} from "react-i18next";
-import {useDispatch, useSelector} from "react-redux";
-import ConversationService from "../../../../services/ConversationService";
-import {MessageCenterService} from "../../../../services/MessageCenterService";
-import {setDiscussionTreadList} from "../../../../redux/features/message/messageSlice";
+import { MaterialIcons } from '@expo/vector-icons';
+import { COLORS } from '../../../../constants';
+import { useTranslation } from 'react-i18next';
+import { useDispatch, useSelector } from 'react-redux';
+import DiscussionThreadItem from '../../../../components/tabs/message/DiscussionThreadItem';
+import Loading from '../../../../components/ui/Loading';
+import ConversationService from '../../../../services/ConversationService';
+import { setDiscussionTreadList } from '../../../../redux/features/message/messageSlice';
 import {
     checkAppState,
-    checkTokenExpired
-} from "../../../../services/GeneralService";
-import Loading from "../../../../components/ui/Loading";
-import {COLORS} from "../../../../constants";
-import {MaterialIcons} from "@expo/vector-icons";
-import DiscussionThreadItem from "../../../../components/tabs/message/DiscussionThreadItem";
+    checkTokenExpired,
+    updateHeaderNotificationEveryWhere,
+} from '../../../../services/GeneralService';
+import { useStompClient } from '../../../../hooks/useStompClient';
+import {router} from "expo-router";
 
-// Polyfill requis par @stomp/stompjs en React Native (encodage des trames binaires)
-Object.assign(global, {
-    TextEncoder: TextEncodingPolyfill.TextEncoder,
-    TextDecoder: TextEncodingPolyfill.TextDecoder,
-});
-
-const inputProps = {enterKeyHint: 'search' as const};
-
-function MessageCenter({navigation}: {navigation: any}) {
-    const {t} = useTranslation();
-    const {discussionTreadList} = useSelector((state: any) => state.messageCenter);
-    const {selectedChild} = useSelector((state: any) => state.child);
-    const {user, userToken} = useSelector((state: any) => state.user);
-
-    const [loading, setLoading] = useState(true);
+function MessageCenter() {
+    const inputProps = { enterKeyHint: 'search' as const };
+    const { t } = useTranslation();
+    const { discussionTreadList } = useSelector((state: any) => state.messageCenter);
+    const { selectedChild } = useSelector((state: any) => state.child);
+    const { user, userToken } = useSelector((state: any) => state.user);
+    const [userDiscussionList, setUserDiscussionList] = useState<any[]>([]);
+    // Si la liste est déjà en cache (Redux/redux-persist) au montage, on
+    // l'affiche tout de suite sans passer par l'écran de chargement plein
+    // écran : le réseau ne fait que rafraîchir en tâche de fond.
+    const [loading, setLoading] = useState(discussionTreadList.length === 0);
     const [search, setSearch] = useState('');
-    // La recherche n'est appliquée qu'à la validation (onSubmitEditing), comme avant.
-    const [committedSearch, setCommittedSearch] = useState('');
-    const [, setCount] = useState(0);
-
     const dispatch = useDispatch();
+    const [count, setCount] = useState(0);
     const appState = useRef(AppState.currentState);
-    const stompClientRef = useRef<Client | null>(null);
 
-    // Liste réellement affichée : dérivée de la liste Redux + du terme validé.
-    const userDiscussionList = useMemo(() => {
-        if (!committedSearch) {
-            return discussionTreadList;
-        }
-        const term = committedSearch.toLowerCase();
-        return discussionTreadList.filter((item: any) => {
-            const initiator = (item?.initiatorNom ?? '').toLowerCase();
-            if (initiator.includes(term)) {
-                return true;
-            }
-            const objet = (item?.objet ?? '').toLowerCase();
-            return objet.includes(term);
-        });
-    }, [discussionTreadList, committedSearch]);
-
-    const handleSearchDiscussionTread = useCallback(() => {
-        setCommittedSearch(search);
-    }, [search]);
-
-    const handleClearSearch = useCallback(() => {
-        setSearch('');
-        setCommittedSearch('');
-    }, []);
-
-    const buildDataToSend = useCallback(() => ({
-        userId: user?.id,
-        uuid: user?.uuid,
-        nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
-        personId: user?.userDetails?.personDetails?.person.id,
-        role: user?.role,
-    }), [user]);
-
-    // Chargement initial (REST) de la liste des discussions de l'enfant sélectionné.
+    // Référence toujours à jour vers la liste actuelle des discussions, pour
+    // que le handler WebSocket (enregistré une fois par connexion) puisse
+    // comparer les nouvelles données à l'état courant sans dépendre d'une
+    // valeur figée au moment de l'abonnement (fermeture obsolète).
+    const discussionTreadListRef = useRef<any[]>(discussionTreadList);
     useEffect(() => {
-        let isActive = true;
+        discussionTreadListRef.current = discussionTreadList;
+    }, [discussionTreadList]);
 
+    // Callback pour les mises à jour de la liste de discussions
+    const handleDiscussionListUpdate = useCallback(
+        (updatedList: any[]) => {
+            dispatch(setDiscussionTreadList(updatedList));
+            // Pas besoin de setUserDiscussionList ici : le useEffect qui
+            // synchronise userDiscussionList sur discussionTreadList (Redux)
+            // s'en charge déjà, ça évite un rendu redondant.
+        },
+        [dispatch]
+    );
+
+    // Utiliser le hook STOMP
+    const { subscribe, activate, unsubscribeAll, onConnect } = useStompClient({
+        userToken,
+        userUuid: user?.uuid,
+    });
+
+    // S'abonner aux espaces de discussion - enregistre un handler onConnect
+    useEffect(() => {
+        if (!user?.uuid || !selectedChild) return;
+
+        activate();
+
+        // Enregistrer un handler appelé à chaque (re)connexion
+        const removeOnConnect = onConnect(async () => {
+            try {
+                // Publier la demande de liste des espaces
+                const dataToSend = {
+                    userId: user.id,
+                    uuid: user.uuid,
+                    personId: user?.userDetails?.personDetails?.person.id,
+                    nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
+                    role: user.role,
+                    connexionDate: 0,
+                    genre: user?.userDetails?.personDetails?.person.sexe,
+                    enfantNom: `${selectedChild.person.nom} ${selectedChild.person.prenom}`,
+                };
+
+                // Publier via subscribe après connexion
+                // Note: on utilise le client directement ici car on est déjà dans onConnect
+                const { getClient } = require('../../../../hooks/useStompClient');
+                // Ce require est juste pour éviter une erreur, mais on va plutôt
+                // utiliser une approche différente
+
+                // S'abonner aux espaces
+                subscribe(
+                    `/chat/utilisateur/${user.uuid}/spaces`,
+                    async (message) => {
+                        try {
+                            const discussionList = JSON.parse(message.body)
+                                .sort((a: any, b: any) => a.theDate - b.theDate)
+                                .reverse();
+
+                            if (discussionList.length === 0) {
+                                handleDiscussionListUpdate([]);
+                                return;
+                            }
+
+                            // Filtrer pour l'enfant sélectionné
+                            const filteredList = discussionList.filter(
+                                (d: any) => d.enfantId === selectedChild.id
+                            );
+
+                            // On évite de re-télécharger le dernier message des
+                            // discussions qui n'ont pas changé depuis la dernière
+                            // fois (même id, même theDate) : seules les
+                            // discussions nouvelles ou mises à jour déclenchent
+                            // un appel REST. Sans ça, un message dans UNE seule
+                            // conversation relançait un fetch pour TOUTES les
+                            // discussions affichées.
+                            const cachedById = new Map(
+                                discussionTreadListRef.current.map((d: any) => [d.id, d])
+                            );
+
+                            // Récupérer les derniers messages pour chaque discussion
+                            const discussionListReq = await Promise.all(
+                                filteredList.map(async (discussion: any) => {
+                                    const cached = cachedById.get(discussion.id);
+                                    if (
+                                        cached &&
+                                        cached.theDate === discussion.theDate &&
+                                        cached.lastMessage !== undefined
+                                    ) {
+                                        return {
+                                            ...discussion,
+                                            lastMessage: cached.lastMessage,
+                                            lastMessageDate: cached.lastMessageDate,
+                                            className: selectedChild?.eleves[0]?.classe?.nom,
+                                        };
+                                    }
+
+                                    const messagesReq = await ConversationService.getLastMessageOfDiscussion(
+                                        discussion.id,
+                                        {
+                                            userId: user.id,
+                                            uuid: user.uuid,
+                                            personId: user?.userDetails?.personDetails?.person.id,
+                                            nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
+                                            role: user.role,
+                                        }
+                                    );
+
+                                    return {
+                                        ...discussion,
+                                        lastMessage: messagesReq[0]?.message || '',
+                                        lastMessageDate: messagesReq[0]?.theDate || 0,
+                                        className: selectedChild?.eleves[0]?.classe?.nom,
+                                    };
+                                })
+                            );
+
+                            const sortedList = discussionListReq.sort(
+                                (a: any, b: any) => b.lastMessageDate - a.lastMessageDate
+                            );
+
+                            handleDiscussionListUpdate(sortedList);
+                        } catch (error) {
+                            console.error('[MessageCenter] Error processing discussion list:', error);
+                        }
+                    },
+                    `spaces-${selectedChild.id}`
+                );
+            } catch (error) {
+                console.error('[MessageCenter] Error in onConnect:', error);
+            }
+        });
+
+        return () => {
+            removeOnConnect();
+            unsubscribeAll();
+        };
+    }, [
+        user?.uuid,
+        selectedChild?.id,
+        activate,
+        subscribe,
+        onConnect,
+        unsubscribeAll,
+        handleDiscussionListUpdate,
+    ]);
+
+    // Charger les données initiales
+    useEffect(() => {
         const fetchData = async () => {
-            if (selectedChild !== null) {
+            if (!selectedChild || !user) {
+                setLoading(false);
+                return;
+            }
+
+            // Idem : si on a déjà une liste en cache, pas d'écran de
+            // chargement plein écran, on rafraîchit discrètement.
+            const hasCachedList = discussionTreadList.length > 0;
+            if (!hasCachedList) {
                 setLoading(true);
+            }
+
+            try {
                 const selectedChildId = selectedChild.id;
                 const classId = selectedChild?.eleves[0]?.classe?.id;
-                const data = buildDataToSend();
+                const data = {
+                    userId: user.id,
+                    uuid: user.uuid,
+                    nom: `${user?.userDetails?.personDetails?.person.nom} ${user?.userDetails?.personDetails?.person.prenom}`,
+                    personId: user?.userDetails?.personDetails?.person.id,
+                    role: user.role,
+                };
 
-                const discussionListReq = await ConversationService.getChildDiscussionList(selectedChildId, classId, data);
+                const discussionListReq = await ConversationService.getChildDiscussionList(
+                    selectedChildId,
+                    classId,
+                    data
+                );
 
                 const discussionListFormatted = await Promise.all(
-                    discussionListReq.map(async (thread: any) => {
-                        const lastMessage = await ConversationService.getLastMessageOfDiscussion(thread?.space.id, data);
+                    discussionListReq.map(async (item: any) => {
+                        const lastMessage = await ConversationService.getLastMessageOfDiscussion(
+                            item?.space.id,
+                            data
+                        );
                         return {
-                            ...thread?.space,
+                            ...item?.space,
                             lastMessage: lastMessage.length > 0 ? lastMessage[0].message : '',
                             lastMessageDate: lastMessage.length > 0 ? lastMessage[0].theDate : 0,
                             className: selectedChild?.eleves[0]?.classe?.nom,
                         };
-                    }),
+                    })
                 );
 
-                discussionListFormatted.sort((a: any, b: any) => a?.lastUpdate - b?.lastUpdate);
-                discussionListFormatted.reverse();
+                const sortedList = discussionListFormatted.sort(
+                    (a: any, b: any) => b.lastUpdate - a.lastUpdate
+                );
 
-                if (isActive) {
-                    dispatch(setDiscussionTreadList(discussionListFormatted));
-                }
+                dispatch(setDiscussionTreadList(sortedList));
+                setUserDiscussionList(sortedList);
+            } catch (error) {
+                console.error('[MessageCenter] Error fetching discussions:', error);
+            } finally {
+                setLoading(false);
             }
 
-            if (isActive) {
-                setLoading(false);
+            // Mettre à jour les notifications
+            if (user) {
+                await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
             }
 
             checkTokenExpired(userToken, dispatch);
         };
 
-        fetchData().catch(error => {
-            console.log(JSON.stringify(error));
-            if (isActive) {
-                setLoading(false);
-            }
+        fetchData().catch((error) => {
+            console.error('[MessageCenter] Error:', error);
+            setLoading(false);
             checkTokenExpired(userToken, dispatch);
         });
 
         const subscription = checkAppState(appState, setCount);
-
         return () => {
-            isActive = false;
             subscription.remove();
         };
-    }, [selectedChild, buildDataToSend, dispatch, userToken]);
+    }, [selectedChild?.id, count]);
 
-    // Connexion WebSocket temps réel : reçoit les mises à jour des espaces de
-    // discussion et les répercute dans Redux. Le client est désabonné puis
-    // désactivé dès que l'utilisateur quitte l'écran (ou change d'enfant).
+    // Synchroniser la liste locale avec Redux
     useEffect(() => {
-        if (selectedChild === null || !user?.uuid) {
-            return;
+        setUserDiscussionList(discussionTreadList);
+    }, [discussionTreadList]);
+
+    const handleSearchDiscussionTread = useCallback(() => {
+        if (search.trim()) {
+            setLoading(true);
+            const filterDiscussionList = discussionTreadList.filter((item: any) => {
+                const initiatorNom = item.initiatorNom?.toLowerCase() || '';
+                const objet = item.objet?.toLowerCase() || '';
+                const searchLower = search.toLowerCase();
+                return initiatorNom.includes(searchLower) || objet.includes(searchLower);
+            });
+            setUserDiscussionList(filterDiscussionList);
+            setLoading(false);
+        } else {
+            setUserDiscussionList(discussionTreadList);
         }
+    }, [search, discussionTreadList]);
 
-        const {createStompClient, onConnect, disconnect} = MessageCenterService();
-        const client = createStompClient();
-        stompClientRef.current = client;
-
-        onConnect(client, buildDataToSend(), user, (updatedDiscussionList) => {
-            dispatch(setDiscussionTreadList(updatedDiscussionList));
-        });
-
-        return () => {
-            disconnect(stompClientRef.current);
-            stompClientRef.current = null;
-        };
-    }, [selectedChild, user, buildDataToSend, dispatch]);
+    const handleClearSearch = useCallback(() => {
+        setSearch('');
+        setUserDiscussionList(discussionTreadList);
+    }, [discussionTreadList]);
 
     if (loading) {
         return <Loading />;
@@ -171,7 +306,6 @@ function MessageCenter({navigation}: {navigation: any}) {
                 <View style={styles.searchToolbar}>
                     <View style={styles.searchBar}>
                         <MaterialIcons name="search" size={20} color={COLORS.gray} />
-                        {/* @ts-ignore*/}
                         <TextInput
                             style={styles.input}
                             placeholder={t('message.search')}
@@ -189,8 +323,9 @@ function MessageCenter({navigation}: {navigation: any}) {
                     <View style={styles.editIconBox}>
                         <TouchableOpacity
                             onPress={() => {
-                                //navigation.navigate(ROUTES.MESSAGE_CONTACT_NEW_MESSAGE)
-                            }}>
+                                router.push('/pages/message/new-conversation');
+                            }}
+                        >
                             <View style={styles.editIcon}>
                                 <MaterialIcons name="comment" size={24} color={COLORS.white} />
                             </View>
@@ -200,8 +335,8 @@ function MessageCenter({navigation}: {navigation: any}) {
 
                 <View style={styles.messageListContainer}>
                     {userDiscussionList.length === 0 && (
-                        <View style={{flex: 1}}>
-                            <Text style={{flex: 1, textAlign: 'center'} as any}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ flex: 1, textAlign: 'center' }}>
                                 {t('message.empty_message')}
                             </Text>
                         </View>
@@ -209,13 +344,16 @@ function MessageCenter({navigation}: {navigation: any}) {
 
                     {userDiscussionList.length > 0 && (
                         <FlatList
-                            style={{paddingLeft: 15, paddingRight: 15}}
+                            style={{ paddingLeft: 15, paddingRight: 15 }}
                             data={userDiscussionList}
-                            keyExtractor={(userDiscussion: any) => userDiscussion.id.toString()}
+                            keyExtractor={(item: any) => item.id.toString()}
                             onEndReachedThreshold={0}
-                            renderItem={({item}) => (
+                            initialNumToRender={12}
+                            maxToRenderPerBatch={10}
+                            windowSize={7}
+                            renderItem={({ item }) => (
                                 <DiscussionThreadItem
-                                    navigation={navigation}
+                                    key={`user-discussion-${item.id}`}
                                     discussionThread={item}
                                 />
                             )}
@@ -276,64 +414,5 @@ const styles = StyleSheet.create({
         flex: 4,
         paddingBottom: 15,
         paddingTop: 30,
-    },
-    messageItemContainer: {
-        flexDirection: 'row',
-        marginBottom: 23,
-    },
-    messageImage: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        padding: 0,
-        paddingBottom: 1,
-    },
-    messageImageCover: {
-        width: 70,
-        height: 70,
-        overflow: 'hidden',
-        borderRadius: 50,
-        borderWidth: 1,
-        backgroundColor: COLORS.grayVeryLight,
-        borderColor: COLORS.grayVeryLight,
-    },
-    messageTextContainer: {
-        flex: 3,
-        paddingLeft: 10,
-    },
-    interlocutor: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '700',
-        letterSpacing: 1,
-        color: COLORS.gray,
-        paddingTop: 5,
-    },
-    messageTimeContainer: {
-        flex: 1,
-        alignItems: 'flex-end',
-    },
-    messageText: {
-        flex: 8,
-        letterSpacing: 1,
-    },
-    messageTime: {
-        fontSize: 13,
-        fontWeight: '600',
-        paddingTop: 5,
-        textAlign: 'right',
-    },
-    messageTimeDay: {
-        fontSize: 12,
-        paddingTop: 5,
-        textAlign: 'right',
-    },
-    newMessageStatus: {
-        width: 13,
-        height: 13,
-        borderRadius: 10,
-        marginTop: 5,
-        marginRight: 2,
-        backgroundColor: COLORS.secondary,
     },
 });

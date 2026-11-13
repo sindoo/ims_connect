@@ -1,49 +1,64 @@
-import React, {useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {MaterialIcons} from "@expo/vector-icons";
 import {COLORS} from "../../../constants";
 
-export default function LanguageItem({
-  data,
-  onSelect,
-  defaultValue,
-}: {
+function LanguageItem({
+                        data,
+                        onSelect,
+                        defaultValue,
+                      }: {
   data: any;
   onSelect: any;
   defaultValue: any;
 }) {
   const [userOption, setUserOption] = useState(defaultValue);
-  const selectHandler = (value: any) => {
+
+  // ✅ "userOption" n'etait initialise qu'une fois, via useState(defaultValue),
+  // au premier rendu. Si "defaultValue" (languageValue dans CustomHeader,
+  // initialise avec i18n.language) change plus tard sans que ce composant
+  // ne soit demonte/remonte, la coche pouvait rester sur l'ancienne langue.
+  // On resynchronise explicitement l'etat local sur la prop.
+  useEffect(() => {
+    setUserOption(defaultValue);
+  }, [defaultValue]);
+
+  const selectHandler = useCallback((value: any) => {
     onSelect(value);
     setUserOption(value);
-  };
+  }, [onSelect]);
 
   return (
-    <View>
-      {data.map((item: any, index: number) => {
-        return (
-          <TouchableOpacity
-            onPress={() => selectHandler(item.value)}
-            style={styles.languageItem}
-            key={index}>
-            <View style={styles.textLangContainer}>
-              <Text style={styles.langText}>{item.label}</Text>
-            </View>
-            <View style={styles.selectLangContainer}>
-              {item.value === userOption && (
-                <MaterialIcons
-                  name="check"
-                  color={COLORS.secondary}
-                  size={24}
-                />
-              )}
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+      <View>
+        {data.map((item: any) => {
+          return (
+              <TouchableOpacity
+                  onPress={() => selectHandler(item.value)}
+                  style={styles.languageItem}
+                  key={item.value}>
+                <View style={styles.textLangContainer}>
+                  <Text style={styles.langText}>{item.label}</Text>
+                </View>
+                <View style={styles.selectLangContainer}>
+                  {item.value === userOption && (
+                      <MaterialIcons
+                          name="check"
+                          color={COLORS.secondary}
+                          size={24}
+                      />
+                  )}
+                </View>
+              </TouchableOpacity>
+          );
+        })}
+      </View>
   );
 }
+
+// Memoise : ce composant ne depend que de "data" (statique par langue),
+// "onSelect" (stable grace au useCallback dans CustomHeader) et
+// "defaultValue" - inutile de le re-rendre pour d'autres raisons.
+export default React.memo(LanguageItem);
 
 const styles = StyleSheet.create({
   buttonContainer: {

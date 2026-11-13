@@ -1,16 +1,23 @@
 import React, {memo, useEffect, useState} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import {useTranslation} from "react-i18next";
-import {format, getHours, getMinutes, isToday, isYesterday, toDate} from "date-fns";
-import {enUS, fr} from "date-fns/locale";
-import {BASEURL_IMG} from "../../../api/appUrl";
-import {COLORS, IMAGES} from "../../../constants";
-import {Image} from "expo-image";
-import LetterAvatar from "../../ui/LetterAvatar";
+import {COLORS, IMAGES, ROUTES} from '../../../constants';
+import {BASEURL_IMG} from '../../../api/appUrl';
+import {
+  format,
+  getHours,
+  getMinutes,
+  isToday,
+  isYesterday,
+  toDate,
+} from 'date-fns';
+import {enUS, fr} from 'date-fns/locale';
+import {useTranslation} from 'react-i18next';
+import LetterAvatar from "../../../components/ui/LetterAvatar";
 import {router} from "expo-router";
+import {Image} from "expo-image";
 
 
-const DiscussionThreadItem = memo(function DiscussionThreadItem({navigation, discussionThread}: any) {
+const DiscussionThreadItem = memo(function DiscussionThreadItem({discussionThread}: any) {
   //const {navigation, discussionThread} = props;
   const {t, i18n} = useTranslation();
   const lastMessageDate: any = toDate(discussionThread?.lastMessageDate);
@@ -50,7 +57,7 @@ const DiscussionThreadItem = memo(function DiscussionThreadItem({navigation, dis
           }}>
         <View style={styles.messageItemContainer}>
           {discussionThread?.initiatorRole === 'PARENT' ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center'} as StyleSheet}>
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <LetterAvatar name={discussionThread?.className} size={65} />
               </View>
           ) : (
@@ -94,6 +101,7 @@ const DiscussionThreadItem = memo(function DiscussionThreadItem({navigation, dis
 
           <View style={styles.messageTimeContainer}>
             <Text style={styles.messageTime}>{displayDate}</Text>
+            {/* {discussionThreadStatus && (<View style={styles.newMessageStatus} />)}*/}
           </View>
         </View>
       </TouchableOpacity>

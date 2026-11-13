@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
     Keyboard, ScrollView,
     StyleSheet,
@@ -19,6 +19,7 @@ import {globalStyles} from "../../../../style/Global";
 import FlatButton from "../../../../components/ui/FlatButton";
 import {withSnackbar} from "../../../../components/ui/SnackbarHOC";
 import {useLocalSearchParams} from "expo-router";
+import Loading from "../../../../components/ui/Loading";
 
 function ProductDetails({route, snackbarShowMessage}: TProductDetailsProps) {
     // @ts-ignore
@@ -26,42 +27,56 @@ function ProductDetails({route, snackbarShowMessage}: TProductDetailsProps) {
     const [data, setData] = useState(null);
     const { productId} = useLocalSearchParams();
     const {t} = useTranslation();
-    const amount = new Intl.NumberFormat('fr-FR').format(data !== null ? data.prix : 0);
+    // ✅ Memoise le formatage : sans ça, "new Intl.NumberFormat(...)" etait
+    // recree et le montant reformate a CHAQUE rendu (donc a chaque frappe
+    // dans le champ quantite, qui met a jour un state sans rapport avec le
+    // prix), au lieu d'une seule fois quand data.prix change reellement.
+    const amount = useMemo(
+        () => new Intl.NumberFormat('fr-FR').format(data !== null ? data.prix : 0),
+        [data?.prix]
+    );
     const [status, setStatus] = useState(false);
     const {selectedChild} = useSelector((state: any) => state.child);
     const {user} = useSelector((state: any) => state.user);
     const [quantity, setQuantity] = useState<string>('1');
     const dispatch = useDispatch();
 
-    const handleQuantity = (text: string) => {
+    const handleQuantity = useCallback((text: string) => {
         setQuantity(text);
-    };
+    }, []);
 
-    const handleOrder = async () => {
+    // ✅ BUG CORRIGE : "setStatus(true)" etait pose avant la validation de la
+    // quantite, mais seul le chemin "quantite valide" appelait
+    // "setStatus(false)" a la fin. Si l'utilisateur saisissait une quantite
+    // invalide (0, negative, ou superieure au stock), aucune erreur n'etait
+    // levee (donc le catch ne se declenchait pas non plus) et "status"
+    // restait bloque a "true" pour toujours : le bouton "Commander"
+    // devenait alors definitivement desactive (disabled={status}), sans
+    // aucun moyen de s'en sortir hormis quitter l'ecran. Restructure avec
+    // un "finally" pour garantir que "status" est toujours remis a false.
+    const handleOrder = useCallback(async () => {
+        if (selectedChild === null || !data) return;
+        setStatus(true);
         try {
-            if(selectedChild !== null) {
-                setStatus(true);
-                const parentId = user?.userDetails?.personDetails?.person?.id;
-                const orderQuantity = parseInt(quantity);
-                if (orderQuantity > 0 && orderQuantity <= data?.quantite) {
-                    const dataOrder = {
-                        product: data,
-                        produitId: data.id,
-                        quantite: orderQuantity,
-                    };
-                    await MarketingService.registerOrder(selectedChild.person.id, parentId, dataOrder);
-                    const userProductList = await MarketingService.getUserProduct(selectedChild.person.id);
-                    dispatch(setUserOderList(userProductList));
-                    snackbarShowMessage(t('snackBar.sb_succes_save'));
-                    setStatus(false);
-                }
+            const parentId = user?.userDetails?.personDetails?.person?.id;
+            const orderQuantity = parseInt(quantity, 10);
+            if (orderQuantity > 0 && orderQuantity <= data?.quantite) {
+                const dataOrder = {
+                    product: data,
+                    produitId: data.id,
+                    quantite: orderQuantity,
+                };
+                await MarketingService.registerOrder(selectedChild.person.id, parentId, dataOrder);
+                const userProductList = await MarketingService.getUserProduct(selectedChild.person.id);
+                dispatch(setUserOderList(userProductList));
+                snackbarShowMessage(t('snackBar.sb_succes_save'));
             }
         } catch (error) {
-            //console.log(JSON.stringify(error));
             snackbarShowMessage(t('snackBar.sb_error'));
+        } finally {
             setStatus(false);
         }
-    };
+    }, [selectedChild, user, quantity, data, dispatch, t, snackbarShowMessage]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -79,81 +94,85 @@ function ProductDetails({route, snackbarShowMessage}: TProductDetailsProps) {
         });
     }, [productId]);
 
+    // ✅ Avant : tant que "data" etait null (pendant le chargement initial),
+    // l'ecran n'affichait strictement RIEN (pas de <Loading/>, contrairement
+    // a tous les autres ecrans de l'appli) - un ecran blanc le temps du
+    // fetch. Ajout d'un indicateur de chargement coherent avec le reste de
+    // l'appli.
+    if (!data) {
+        return <Loading />;
+    }
+
     return (
-        <>
-            {data && (
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <ScrollView style={styles.container}>
-                        <View style={styles.topContent}>
-                            <View style={styles.imageContainer}>
-                                <Image
-                                    source={
-                                        data?.photo !== '' && data?.photo !== null
-                                            ? {uri: `${BASEURL_IMG}/${data?.photo}`}
-                                            : IMAGES.noBookImage
-                                    }
-                                    contentFit="cover"
-                                    style={styles.imageCover}
-                                />
-                            </View>
-                            <Text style={{...globalStyles.titleH2, textAlign: 'center'} as StyleSheet}>
-                                {data?.nom}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView style={styles.container}>
+                <View style={styles.topContent}>
+                    <View style={styles.imageContainer}>
+                        <Image
+                            source={
+                                data?.photo !== '' && data?.photo !== null
+                                    ? {uri: `${BASEURL_IMG}/${data?.photo}`}
+                                    : IMAGES.noBookImage
+                            }
+                            contentFit="cover"
+                            style={styles.imageCover}
+                        />
+                    </View>
+                    <Text style={styles.titleCentered}>
+                        {data?.nom}
+                    </Text>
+                    <View style={styles.rowSpaced}>
+                        <View style={styles.flex1}>
+                            <Text style={styles.labelSecondary}>
+                                {t('more.mini_club_price')} :
                             </Text>
-                            <View style={{flexDirection: 'row', marginTop: 10} as StyleSheet}>
-                                <View style={{flex: 1}}>
-                                    <Text style={{color: COLORS.secondary}}>
-                                        {t('more.mini_club_price')} :
-                                    </Text>
-                                </View>
-                                <View style={{flex: 3}}>
-                                    <Text>{amount} FCFA</Text>
-                                </View>
-                            </View>
-                            {data?.description !== '' && data?.description !== null && (
-                                <>
-                                    <Text style={{color: COLORS.secondary, marginTop: 5}}>
-                                        {t('more.mini_club_description')} :
-                                    </Text>
-                                    <Text style={{textAlign: 'justify'} as StyleSheet}>{data?.description}</Text>
-                                </>
-                            )}
-
-                            <View style={{flexDirection: 'row', marginTop: 10} as StyleSheet}>
-                                <View style={{flex: 1, justifyContent: 'center'} as StyleSheet}>
-                                    <Text style={{color: COLORS.secondary}}>
-                                        {t('more.product_quantity')} :
-                                    </Text>
-                                </View>
-                                <View style={{flex: 3}}>
-                                    <TextInput
-                                        style={styles.input}
-                                        keyboardType={'numeric'}
-                                        onChangeText={text => handleQuantity(text)}
-                                        value={quantity}
-                                    />
-                                </View>
-                            </View>
                         </View>
-
-                        <View style={styles.registeredList}>
-                            <View
-                                style={{marginTop: 15, marginBottom: 20, paddingHorizontal: 15}}>
-                                <FlatButton
-                                    title={t('more.order_product')}
-                                    fontWeight="400"
-                                    fontSize={16}
-                                    backgroundColor={COLORS.secondary}
-                                    paddingVertical={12}
-                                    borderRadius={20}
-                                    onPress={() => handleOrder()}
-                                    disabled={status}
-                                />
-                            </View>
+                        <View style={styles.flex3}>
+                            <Text>{amount} FCFA</Text>
                         </View>
-                    </ScrollView>
-                </TouchableWithoutFeedback>
-            )}
-        </>
+                    </View>
+                    {data?.description !== '' && data?.description !== null && (
+                        <>
+                            <Text style={styles.descriptionLabel}>
+                                {t('more.mini_club_description')} :
+                            </Text>
+                            <Text style={styles.description}>{data?.description}</Text>
+                        </>
+                    )}
+
+                    <View style={styles.rowSpaced}>
+                        <View style={styles.quantityLabelWrapper}>
+                            <Text style={styles.labelSecondary}>
+                                {t('more.product_quantity')} :
+                            </Text>
+                        </View>
+                        <View style={styles.flex3}>
+                            <TextInput
+                                style={styles.input}
+                                keyboardType={'numeric'}
+                                onChangeText={handleQuantity}
+                                value={quantity}
+                            />
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.registeredList}>
+                    <View style={styles.buttonWrapper}>
+                        <FlatButton
+                            title={t('more.order_product')}
+                            fontWeight="400"
+                            fontSize={16}
+                            backgroundColor={COLORS.secondary}
+                            paddingVertical={12}
+                            borderRadius={20}
+                            onPress={handleOrder}
+                            disabled={status}
+                        />
+                    </View>
+                </View>
+            </ScrollView>
+        </TouchableWithoutFeedback>
     );
 }
 
@@ -189,12 +208,10 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     titleList: {
-        //fontWeight: '600',
         color: COLORS.secondary,
     },
     participant: {
         flex: 1,
-        //flexDirection: 'row',
         paddingTop: 10,
     },
     input: {
@@ -205,5 +222,38 @@ const styles = StyleSheet.create({
         padding: 0,
         paddingLeft: 10,
         color: COLORS.gray,
+    },
+    titleCentered: {
+        ...globalStyles.titleH2,
+        textAlign: 'center',
+    },
+    rowSpaced: {
+        flexDirection: 'row',
+        marginTop: 10,
+    },
+    flex1: {
+        flex: 1,
+    },
+    flex3: {
+        flex: 3,
+    },
+    quantityLabelWrapper: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    labelSecondary: {
+        color: COLORS.secondary,
+    },
+    descriptionLabel: {
+        color: COLORS.secondary,
+        marginTop: 5,
+    },
+    description: {
+        textAlign: 'justify',
+    },
+    buttonWrapper: {
+        marginTop: 15,
+        marginBottom: 20,
+        paddingHorizontal: 15,
     },
 });

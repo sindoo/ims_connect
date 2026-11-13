@@ -1,5 +1,5 @@
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
-import {JSX, useEffect, useState} from "react";
+import {FlatList, StyleSheet, Text, View} from 'react-native';
+import {useCallback, useEffect, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useSelector} from "react-redux";
 import PaymentService from "../../../../../services/PaymentService";
@@ -19,24 +19,25 @@ function Deadline() {
     const [tuitionYearData, setTuitionYearData] = useState<any>([]);
     const [loading, setLoading] = useState(true);
 
-    const getDeadlineList = async (tuitionYearId: number) => {
+    const getDeadlineList = useCallback(async (tuitionYearId: number) => {
         setLoading(true);
         try {
-            const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
-            if(groupIdReq !== undefined) {
+            // GET GROUP ID + TUITION FEES TYPE : les deux appels sont
+            // independants (aucun n'a besoin du resultat de l'autre), on
+            // les lance en parallele au lieu de les enchainer.
+            const [groupIdReq, tuitionFeesTypeData] = await Promise.all([
+                PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId),
+                PaymentService.getTuitionFeesType(),
+            ]);
+            if(groupIdReq !== undefined && tuitionFeesTypeData.length > 0) {
                 const groupId = groupIdReq.groupesectionId;
+                const tuitionFeesType = PaymentService.getTuitionFeesTypeIdByTag(tuitionFeesTypeData);
+                if(tuitionFeesType !== undefined) {
+                    const deadlineListReq = await PaymentService.getDeadlineByChild(selectedChild.person.id, groupId, tuitionYearId, tuitionFeesType.id);
+                    setEcheancierList(deadlineListReq);
 
-                //GET TUITION FEES TYPE
-                const tuitionFeesTypeData = await PaymentService.getTuitionFeesType();
-                if(tuitionFeesTypeData.length > 0) {
-                    const tuitionFeesType = PaymentService.getTuitionFeesTypeIdByTag(tuitionFeesTypeData);
-                    if(tuitionFeesType !== undefined) {
-                        const deadlineListReq = await PaymentService.getDeadlineByChild(selectedChild.person.id, groupId, tuitionYearId, tuitionFeesType.id);
-                        setEcheancierList(deadlineListReq);
-
-                        const amountDeadline = PaymentService.getSumOfAllDeadlineByChild(deadlineListReq);
-                        setSchoolingAmount(amountDeadline);
-                    }
+                    const amountDeadline = PaymentService.getSumOfAllDeadlineByChild(deadlineListReq);
+                    setSchoolingAmount(amountDeadline);
                 }
             }
             setLoading(false);
@@ -46,11 +47,19 @@ function Deadline() {
             console.log(error);
             setLoading(false);
         }
-    }
-    const onTuitionYearValueChange = async (tuitionYearId: number) => {
-        await getDeadlineList(tuitionYearId);
-    }
+    }, [selectedChild]);
 
+    const onTuitionYearValueChange = useCallback(async (tuitionYearId: number) => {
+        await getDeadlineList(tuitionYearId);
+    }, [getDeadlineList]);
+
+    // NOTE : ce useEffect garde volontairement le tableau de dependances []
+    // du fichier d'origine (il ne se relance donc pas si `selectedChild`
+    // change apres le montage), pour ne pas modifier le comportement actuel
+    // sans confirmation. A verifier : all-payment.tsx utilise [selectedChild]
+    // pour un effet equivalent - si cet ecran doit aussi se remettre a jour
+    // quand on change d'enfant sans demonter le composant, il faudra ajouter
+    // selectedChild ici (et dans proforma.tsx, meme cas).
     useEffect(() => {
         const fetchData = async () => {
             if(selectedChild !== null) {
@@ -71,6 +80,18 @@ function Deadline() {
         });
     }, []);
 
+    const renderEcheancierItem = useCallback(({item}: {item: any}) => (
+        <EcheancierItem data={item} />
+    ), []);
+    const keyExtractorEcheancier = useCallback((item: any) => String(item.id), []);
+    const ListEmptyComponent = useCallback(() => (
+        <View>
+            <Text style={styles.emptyText}>
+                {t('more.empty_deadline_payment')}
+            </Text>
+        </View>
+    ), [t]);
+
     if(loading) {
         return <Loading />;
     }
@@ -87,42 +108,22 @@ function Deadline() {
             />
 
             <View style={styles.montantEcheancier}>
-                <View
-                    style={{
-                        backgroundColor: COLORS.yellowIms,
-                        padding: 10,
-                        marginTop: 10,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    } as StyleSheet}>
-                    <Text
-                        style={{
-                            marginRight: 30,
-                            color: COLORS.black,
-                            fontWeight: '600',
-                            fontSize: 15,
-                        } as StyleSheet}>
+                <View style={styles.amountBox}>
+                    <Text style={styles.amountLabel}>
                         {t('more.schooling_amount')}
                     </Text>
-                    <Text style={{color: COLORS.black, fontWeight: '600', fontSize: 15} as StyleSheet}>
+                    <Text style={styles.amountValue}>
                         {new Intl.NumberFormat('fr-FR').format(schoolingAmount)} {t('more.payment_devise')}
                     </Text>
                 </View>
             </View>
-            <ScrollView style={styles.listContainer}>
-                {(echeancierList.length === 0 || false) && (
-                    <View>
-                        <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                            {t('more.empty_deadline_payment')}
-                        </Text>
-                    </View>
-                ) as JSX.Element}
-                {echeancierList.length > 0 &&
-                    echeancierList.map((echeancier: any) => {
-                        return <EcheancierItem key={echeancier.id} data={echeancier} />;
-                    })}
-            </ScrollView>
+            <FlatList
+                style={styles.listContainer}
+                data={echeancierList}
+                renderItem={renderEcheancierItem}
+                keyExtractor={keyExtractorEcheancier}
+                ListEmptyComponent={ListEmptyComponent}
+            />
         </View>
     );
 }
@@ -135,8 +136,30 @@ const styles = StyleSheet.create({
         paddingTop: 30,
     },
     montantEcheancier: {
-        //paddingTop: 20,
         paddingLeft: 15,
         paddingRight: 15,
+    },
+    amountBox: {
+        backgroundColor: COLORS.yellowIms,
+        padding: 10,
+        marginTop: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    amountLabel: {
+        marginRight: 30,
+        color: COLORS.black,
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    amountValue: {
+        color: COLORS.black,
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    emptyText: {
+        flex: 1,
+        textAlign: 'center',
     },
 });

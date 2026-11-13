@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { useDispatch, useSelector } from 'react-redux';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Snackbar } from 'react-native-paper';
 import MiniClubService from '../../../../services/MiniClubService';
 import {
@@ -36,6 +36,7 @@ function MiniClubDetails() {
     // Sélecteurs memoïsés
     const { selectedChild } = useSelector((state: any) => state.child);
     const { user } = useSelector((state: any) => state.user);
+    const miniClubUpdateSignal = useSelector((state: any) => state.miniclub.updateMiniClubStatus);
 
     const [miniClubDetails, setMiniClubDetails] = useState(null);
     const [registeredChildList, setRegisteredChildList] = useState([]);
@@ -99,13 +100,24 @@ function MiniClubDetails() {
     }, [miniClubDetails]);
 
     // Vérifications memoïsées
+    // NOTE : le "?? false" d'origine ne servait a rien - une comparaison
+    // avec ">" renvoie toujours un booleen (jamais null/undefined), meme
+    // quand miniClubDetails est undefined (undefined > number vaut false).
+    // Supprime, comportement strictement identique.
     const isSubscriptionActive = useMemo(() => {
-        return miniClubDetails?.dateFin > Date.now() ?? false;
+        return miniClubDetails?.dateFin > Date.now();
     }, [miniClubDetails]);
 
+    // Statut calculé depuis les données réelles (et non le paramètre de route,
+    // qui peut être obsolète ou différent selon l'origine de la navigation)
+    const isChildRegistered = useMemo(() => {
+        if (!miniClubDetails || !selectedChild?.person?.id) return registrationStatus === '1';
+        return !!MiniClubService.getRegistrationInfo(selectedChild.person.id, miniClubDetails);
+    }, [miniClubDetails, selectedChild, registrationStatus]);
+
     const isRegistrationActive = useMemo(() => {
-        return registrationStatus === '1' && isSubscriptionActive;
-    }, [registrationStatus, isSubscriptionActive]);
+        return isChildRegistered && isSubscriptionActive;
+    }, [isChildRegistered, isSubscriptionActive]);
 
     const isFull = useMemo(() => {
         if (!miniClubDetails) return false;
@@ -243,6 +255,28 @@ function MiniClubDetails() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Rechargement silencieux au retour sur l'écran et à chaque signal
+    // (notification reçue, inscription/désinscription)
+    const firstFocusRef = useRef(true);
+    useFocusEffect(
+        useCallback(() => {
+            if (firstFocusRef.current) {
+                firstFocusRef.current = false;
+                return;
+            }
+            loadData(false);
+        }, [loadData])
+    );
+
+    const firstSignalRef = useRef(true);
+    useEffect(() => {
+        if (firstSignalRef.current) {
+            firstSignalRef.current = false;
+            return;
+        }
+        loadData(false);
+    }, [miniClubUpdateSignal]);
 
     // Couleur du snackbar selon le type
     const snackbarColor = snackbarType === 'success' ?  COLORS.gray : COLORS.redIms;

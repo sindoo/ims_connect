@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
     AppState,
     Keyboard,
@@ -27,29 +27,22 @@ function Survey(props: any) {
     const inputProps = {enterKeyHint: 'search'};
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
-    const [surveyList, setSurveyList] = useState([]);
-    const [surveyListOrig, setSurveyListOrig] = useState([]);
+    // Liste complète renvoyée par le serveur : source de vérité. La liste
+    // affichée (surveyList) en est dérivée selon la recherche, ce qui permet de
+    // retrouver toute la liste dès que la recherche est effacée.
+    const [surveyListOrig, setSurveyListOrig] = useState<any[]>([]);
     const dispatch = useDispatch();
     const [count, setCount] = useState(0);
     const appState = useRef(AppState.currentState);
 
-    const handleSearchSurvey = () => {
-        if (search !== '') {
-            setLoading(true);
-            let filterSurveyList = surveyList.filter(function (item: any) {
-                const itemLowerCase: any = item.nom;
-                return itemLowerCase.toLowerCase().includes(search.trim().toLowerCase());
-            });
-            setSurveyList(filterSurveyList);
-            setLoading(false);
-        } else {
-            setSurveyList(surveyListOrig);
-        }
-    };
+    const surveyList = useMemo(() => {
+        const searchLower = search.trim().toLowerCase();
+        if (searchLower === '') return surveyListOrig;
+        return surveyListOrig.filter((item: any) => (item?.nom ?? '').toLowerCase().includes(searchLower));
+    }, [surveyListOrig, search]);
 
     const handleClearSearch = () => {
         setSearch('');
-        setSurveyListOrig(surveyListOrig);
     };
 
     useEffect(() => {
@@ -60,7 +53,6 @@ function Survey(props: any) {
                 const userId = user.id;
                 if(classId !== undefined) {
                     const surveyListReq = await SurveyService.getAllSurvey(classId, userId);
-                    setSurveyList(surveyListReq);
                     setSurveyListOrig(surveyListReq);
                     setLoading(false);
                 }
@@ -70,12 +62,12 @@ function Survey(props: any) {
             checkTokenExpired(userToken, dispatch);
         };
         fetchData().catch(error => {
-            console.log(error);
+            console.log('Sondage screen:', error);
             setLoading(false);
             checkTokenExpired(userToken, dispatch);
         });
 
-        const subscription = checkAppState(appState, count, setCount);
+        const subscription = checkAppState(appState, setCount);
         return () => {
             subscription.remove();
         };
@@ -99,7 +91,7 @@ function Survey(props: any) {
                                 {...inputProps}
                                 value={search}
                                 onChangeText={(text: any) => setSearch(text)}
-                                onSubmitEditing={() => handleSearchSurvey()}
+                                onSubmitEditing={() => Keyboard.dismiss()}
                                 inputMode={'search'}
                             />
                             <TouchableOpacity onPress={() => handleClearSearch()}>
@@ -123,7 +115,7 @@ function Survey(props: any) {
                                     <SurveyItem
                                         key={survey.id}
                                         survey={survey}
-                                        setSurveyList={setSurveyList}
+                                        setSurveyList={setSurveyListOrig}
                                         setSurveyListOrig={setSurveyListOrig}
                                         snackbarShowMessage={snackbarShowMessage}
                                     />

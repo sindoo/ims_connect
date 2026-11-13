@@ -36,17 +36,6 @@ export default function AppointmentItemPreset({data}: any) {
         <View style={{...styles.appointmentItem, marginRight: 10}}>
           <View style={styles.appointmentDetails}>
             <View style={{marginBottom: 10} as StyleSheet}>
-              {/*<View
-                style={{
-                  ...((data.meetingStatus === 'CONFIRM' &&
-                    styles.validateStatus) ||
-                    (data.meetingStatus === 'WAIT' && styles.pendingStatus) ||
-                    (data.meetingStatus === 'PARTIAL_CONFIRM' &&
-                      styles.pendingStatus) ||
-                    (data.meetingStatus === 'CANCEL' && styles.cancelStatus)),
-                  marginRight: 10,
-                }}
-              />*/}
               <Text style={styles.titleDetail}>{data.objet}</Text>
             </View>
 

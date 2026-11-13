@@ -45,6 +45,16 @@ android/app/build
 .idea
 .claude
 
-/ios/Pods/
+/ios/
 android/
 android/
+
+# Yarn 4
+.yarn/*
+!.yarn/releases
+!.yarn/patches
+!.yarn/plugins
+.pnp.*
+
+# Sentry (jeton d'envoi des source maps, ne pas versionner)
+.env.sentry-build-plugin

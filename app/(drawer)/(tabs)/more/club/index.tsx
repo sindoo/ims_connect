@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
+    FlatList,
     Keyboard,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -156,6 +156,12 @@ function MiniClub() {
         </View>
     ), [t]);
 
+    // renderItem/keyExtractor memoïsés pour la virtualisation FlatList
+    const renderMiniClubItem = useCallback(({ item }: { item: TMiniClub }) => (
+        <MiniClubItem data={item} />
+    ), []);
+    const keyExtractorMiniClub = useCallback((item: TMiniClub) => String(item.id), []);
+
     // Couleur du snackbar selon le type
     const snackbarColor = snackbarType === 'success' ? COLORS.secondary : COLORS.redIms;
 
@@ -193,11 +199,17 @@ function MiniClub() {
                         </View>
                     </View>
 
-                    {/* Liste des mini-clubs */}
-                    <ScrollView
+                    {/* Liste des mini-clubs : ScrollView+map remplacé par FlatList
+                        pour ne monter/rendre que les éléments visibles à l'écran
+                        (virtualisation) au lieu de tout le contenu d'un coup. */}
+                    <FlatList
                         style={styles.miniClubList}
+                        data={filteredList}
+                        renderItem={renderMiniClubItem}
+                        keyExtractor={keyExtractorMiniClub}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={filteredList.length === 0 && styles.emptyListContent}
+                        ListEmptyComponent={emptyMessage}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
@@ -206,18 +218,7 @@ function MiniClub() {
                                 tintColor={COLORS.secondary}
                             />
                         }
-                    >
-                        {filteredList.length === 0 ? (
-                            emptyMessage
-                        ) : (
-                            filteredList.map((miniClub: TMiniClub) => (
-                                <MiniClubItem
-                                    key={miniClub.id}
-                                    data={miniClub}
-                                />
-                            ))
-                        )}
-                    </ScrollView>
+                    />
                 </View>
             </TouchableWithoutFeedback>
 

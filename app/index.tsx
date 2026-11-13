@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, ScrollView, StyleSheet, TouchableOpacity} from "react-native";
+import React, {useCallback, useEffect, useMemo, useRef} from 'react';
+import {FlatList, Text, TouchableOpacity, View, StyleSheet} from "react-native";
 import {useDispatch, useSelector} from "react-redux";
 import {globalStyles} from "../style/Global";
 import ViewThemed from "../components/ui/ViewThemed";
@@ -8,79 +8,110 @@ import Card from "../components/ui/Card";
 import {BASEURL_IMG} from "../api/appUrl";
 import {changeChild} from "../redux/features/child/childSlice";
 import {useRouter} from "expo-router";
-import Loading from "../components/ui/Loading";
 import {Image} from "expo-image";
 
+type Child = {
+    person?: { id?: number | string; nom?: string; prenom?: string; photo?: string | null };
+    eleves?: Array<{ classe?: { nom?: string } }>;
+};
+
+// ✅ Carte extraite et mémoïsée : ne se re-rend pas quand la liste des
+// enfants change de référence mais que cet élément précis est inchangé
+const ChildCard = React.memo(function ChildCard({
+                                                    child,
+                                                    onPress,
+                                                }: {
+    child: Child;
+    onPress: (child: Child) => void;
+}) {
+    const handlePress = useCallback(() => onPress(child), [onPress, child]);
+
+    const photo = child?.person?.photo;
+    const imageSource = photo ? {uri: `${BASEURL_IMG}/${photo}`} : IMAGES.avatar;
+
+    return (
+        <View style={styles.profileItemContainer}>
+            <Card borderRaduis={6}>
+                <TouchableOpacity onPress={handlePress}>
+                    <View style={styles.profileItem}>
+                        <View style={styles.profileImage}>
+                            <Image
+                                source={imageSource}
+                                contentFit="cover"
+                                style={styles.profileImageCover}
+                                cachePolicy="memory-disk"
+                                transition={100}
+                            />
+                        </View>
+                        <Text style={styles.profileItemTitle}>
+                            {child?.person?.nom} {child?.person?.prenom}
+                        </Text>
+                        <Text style={styles.profileClasse}>
+                            {child.eleves?.[0]?.classe?.nom}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            </Card>
+        </View>
+    );
+});
+
 const ProfileChoice = () => {
-    const [buttonStatus, setButtonStatus] = useState(false);
     const dispatch = useDispatch();
     const {children} = useSelector((state: any) => state.child);
-    const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    const handleSelectChildProfile = (child: any) => {
+    // ✅ Fonction stable : ne recrée pas une nouvelle closure pour chaque
+    // carte à chaque rendu du parent
+    const handleSelectChildProfile = useCallback((child: any) => {
         dispatch(changeChild(child));
-        // ✅ Petit délai pour éviter les conflits de navigation
-        setTimeout(() => {
-            router.push(ROUTES.HOME_DRAWER);
-        }, 100);
-    };
+        router.push(ROUTES.HOME_DRAWER);
+    }, [dispatch, router]);
 
+    const renderItem = useCallback(({item}: {item: Child}) => (
+        <ChildCard child={item} onPress={handleSelectChildProfile} />
+    ), [handleSelectChildProfile]);
+
+    const keyExtractor = useCallback((item: Child, index: number) => (
+        String(item?.person?.id ?? index)
+    ), []);
+
+    const visibleChildren = useMemo(
+        () => (children && children.length > 1 ? children : []),
+        [children]
+    );
+
+    // ✅ Un seul enfant : pas de choix à faire, on sélectionne directement
+    // son profil et on passe à l'accueil (sinon l'écran restait vide).
+    const autoSelectedRef = useRef(false);
     useEffect(() => {
-        const fetchLoading = () => {
-            setLoading(false);
+        if (children?.length === 1 && !autoSelectedRef.current) {
+            autoSelectedRef.current = true;
+            dispatch(changeChild(children[0]));
+            router.replace(ROUTES.HOME_DRAWER);
         }
-        fetchLoading();
-    }, []);
+    }, [children, dispatch, router]);
 
-    if (loading) {
-        return <Loading />;
+    // ✅ Plus d'état "loading" factice : il n'y avait aucune opération
+    // asynchrone derrière, seulement un re-rendu inutile qui retardait
+    // l'affichage du contenu d'une frame.
+    if (visibleChildren.length === 0) {
+        return <ViewThemed style={globalStyles.container} />;
     }
 
     return (
         <ViewThemed style={globalStyles.container}>
-            <ScrollView style={styles.profileContainer}>
-                <View style={styles.containerProfileChoice}>
-                    {children && children.length > 1 &&
-                        children.map((child: any) => {
-                            return (
-                                <View style={styles.profileItemContainer} key={child?.person?.id}>
-                                    <Card borderRaduis={6}>
-                                        <TouchableOpacity
-                                            onPress={() => handleSelectChildProfile(child)}>
-                                            <View style={styles.profileItem}>
-                                                <View style={styles.profileImage}>
-                                                    <Image
-                                                        source={
-                                                            child?.person?.photo !== null &&
-                                                            child?.person?.photo !== ''
-                                                                ? {
-                                                                    uri: `${BASEURL_IMG}/${child?.person?.photo}`,
-                                                                }
-                                                                : IMAGES.avatar
-                                                        }
-                                                        contentFit="cover"
-                                                        style={styles.profileImageCover}
-                                                    />
-                                                </View>
-                                                <Text style={styles.profileItemTitle}>
-                                                    {child?.person?.nom} {child?.person?.prenom}
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        ...styles.profile,
-                                                        textTransform: 'capitalize',
-                                                    } as StyleSheet}>
-                                                    {child.eleves[0]?.classe?.nom}
-                                                </Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    </Card>
-                                </View>
-                            );
-                        })}
-                </View>
-            </ScrollView>
+            <FlatList
+                data={visibleChildren}
+                keyExtractor={keyExtractor}
+                renderItem={renderItem}
+                style={styles.profileContainer}
+                contentContainerStyle={styles.containerProfileChoice}
+                initialNumToRender={6}
+                maxToRenderPerBatch={6}
+                windowSize={5}
+                removeClippedSubviews
+            />
         </ViewThemed>
     );
 };
@@ -88,12 +119,6 @@ const ProfileChoice = () => {
 export default ProfileChoice;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignContent: 'center',
-        backgroundColor: COLORS.white,
-    },
     profileContainer: {
         paddingLeft: 15,
         paddingRight: 15,
@@ -106,11 +131,8 @@ const styles = StyleSheet.create({
     },
     containerProfileChoice: {
         justifyContent: 'center',
-        alignContent: 'center',
         alignItems: 'center',
-        //flexWrap: "wrap"
     },
-
     profileItem: {
         width: 130,
         minHeight: 155,
@@ -135,8 +157,9 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: COLORS.gray,
     },
-    profile: {
+    profileClasse: {
         textAlign: 'center',
         color: COLORS.gray,
+        textTransform: 'capitalize',
     },
 });

@@ -375,6 +375,33 @@ const AppointmentDetails = (props) => {
                                     </Text>
                                 </View>
 
+                                {/* Raisons du report (parent et interlocuteur), masquées si le rdv est confirmé */}
+                                {appointmentDetailsInRedux.meetingType === 'NORMAL' &&
+                                    appointmentDetailsInRedux.meetingStatus !== 'CONFIRM' && (
+                                    <>
+                                        {!!appointmentDetailsInRedux.creneauRdvs?.[0]?.creneauRdvEnfantParents?.[0]?.reportComment?.trim() && (
+                                            <View style={styles.information}>
+                                                <Text style={{...styles.labelContainer, ...styles.textGray}}>
+                                                    {t('appointmentDetails.parent_report_reason')}
+                                                </Text>
+                                                <Text style={{...styles.textContainer, ...styles.textGray}}>
+                                                    {appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEnfantParents[0].reportComment}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {!!appointmentDetailsInRedux.creneauRdvs?.[0]?.creneauRdvEmployees?.[0]?.reportComment?.trim() && (
+                                            <View style={styles.information}>
+                                                <Text style={{...styles.labelContainer, ...styles.textGray}}>
+                                                    {t('appointmentDetails.teacher_report_reason')}
+                                                </Text>
+                                                <Text style={{...styles.textContainer, ...styles.textGray}}>
+                                                    {appointmentDetailsInRedux.creneauRdvs[0].creneauRdvEmployees[0].reportComment}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </>
+                                )}
+
                                 {appointmentDetailsInRedux.meetingStatus === 'REPORT' && (
                                     <View style={{marginTop: 10}}>
                                         <Text style={globalStyles.titleH3}>

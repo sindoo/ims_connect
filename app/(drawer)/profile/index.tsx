@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -31,25 +31,28 @@ import DatePicker from 'react-native-date-picker';
 import DropDownPicker from 'react-native-dropdown-picker';
 import FlatButton from "../../../components/ui/FlatButton";
 
+// Validation souple : accepte les adresses existantes en base (ex. domaine avec « _ »)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const editProfileFormSchema = yup.object({
     prenom: yup.string().required().min(3),
     nom: yup.string().required().min(3),
-    adresse: yup.string(),
+    adresse: yup.string().nullable(),
     motherPrenom: yup.string().required().min(3),
     motherNom: yup.string().required().min(3),
     motherPhone1: yup.string().required(),
-    motherEmail: yup.string().email().required(),
+    motherEmail: yup.string().trim().matches(EMAIL_REGEX, 'invalid email').required(),
     fatherPrenom: yup.string().required().min(3),
     fatherNom: yup.string().required().min(3),
     fatherPhone1: yup.string().required(),
-    fatherEmail: yup.string().email().required(),
-    allergy: yup.string(),
-    foodRestriction: yup.string(),
-    healthDetail: yup.string(),
-    emergencyNom1: yup.string(),
-    emergencyPhone1: yup.string(),
-    emergencyNom2: yup.string(),
-    emergencyPhone2: yup.string(),
+    fatherEmail: yup.string().trim().matches(EMAIL_REGEX, 'invalid email').required(),
+    allergy: yup.string().nullable(),
+    foodRestriction: yup.string().nullable(),
+    healthDetail: yup.string().nullable(),
+    emergencyNom1: yup.string().nullable(),
+    emergencyPhone1: yup.string().nullable(),
+    emergencyNom2: yup.string().nullable(),
+    emergencyPhone2: yup.string().nullable(),
 });
 
 const nationalityData = [
@@ -60,6 +63,14 @@ const nationalityData = [
 function Profile(props: any) {
     const {snackbarShowMessage} = props;
     const {t, i18n} = useTranslation();
+    // Message d'erreur d'un champ obligatoire, affiché seulement après interaction ou tentative d'enregistrement
+    const fieldError = (formikProps: any, name: string): string | null => {
+        if (!formikProps.touched?.[name] || !formikProps.errors?.[name]) return null;
+        const value = String(formikProps.values?.[name] ?? '').trim();
+        if (value === '') return t('login.required_field');
+        if (name.endsWith('Email')) return t('child_profile.invalid_email');
+        return t('child_profile.min_length');
+    };
     const [dayOfBirth, setDayOfBirth] = useState(new Date());
     const [openDayOfBirth, setOpenDayOfBirth] = useState(false);
     const language = i18n.language.toUpperCase();
@@ -84,6 +95,7 @@ function Profile(props: any) {
     const [imageRightName, setImageRightName] = useState<any>([]);
     const [imageRightData, setImageRightData] = useState<any>([]);
     const [loading, setLoading] = useState(false);
+    const hasLoadedOnceRef = useRef(false);
     const [sendingPictureStatus, setSendingPictureStatus] = useState(false);
     const [editable, setEditable] = useState(true);
     const [buttonStatus, setButtonStatus] = useState(false);
@@ -98,9 +110,10 @@ function Profile(props: any) {
             type: type,
             name: name,
         });
-        const dataForm = Object.fromEntries(formData);
-        //console.log(JSON.stringify(dataForm))
-        uploadFileRequest('POST', '', '/corebase/enfants/photo/enfant', dataForm)
+        // FormData envoyé tel quel (comme dans les messages) : Object.fromEntries
+        // le transformait en objet JSON et le serveur ne recevait plus le fichier.
+        setSendingPictureStatus(true);
+        uploadFileRequest('POST', '', '/corebase/enfants/photo/enfant', formData)
             .then(response => {
                 setSendingPictureStatus(true);
                 const selectedChildUpdate = {
@@ -110,7 +123,8 @@ function Profile(props: any) {
                         photo: response.data,
                     },
                 };
-                request('POST', '', '/corebase/enfants/mobile', selectedChildUpdate)
+                //${selectedChild?.person?.id}
+                request('PUT', '', `/corebase/enfants/${selectedChild?.person?.id}/mobile`, selectedChildUpdate)
                     .then(responseData => {
                         dispatch(changeChild(responseData.data));
                         //setLoading(false);
@@ -118,13 +132,17 @@ function Profile(props: any) {
                     })
                     .catch((error: any) => {
                         // Error message
-                        console.log(error);
+                        console.log('❌ Update data profil enfant:', JSON.stringify(error));
                         setSendingPictureStatus(false);
                     });
             })
             .catch((error: any) => {
-                // Error message
-                console.log(error);
+                console.log('❌ Update data profil enfant:', JSON.stringify(error));
+                console.log('❌ Upload photo enfant:', {
+                    status: error?.response?.status,
+                    data: error?.response?.data,
+                    message: error?.message,
+                });
                 setSendingPictureStatus(false);
             });
     };
@@ -167,13 +185,21 @@ function Profile(props: any) {
     useEffect(() => {
         const fetchData = async () => {
             if(selectedChild !== null) {
-                setLoading(true);
+                // Écran de chargement seulement au 1er affichage : après un
+                // enregistrement, selectedChild change et la page ne doit pas blanchir
+                if (!hasLoadedOnceRef.current) {
+                    setLoading(true);
+                }
                 let dateNaissance = selectedChild?.person?.dateNaissance;
-                dateNaissance = toDate(dateNaissance);
-                setDayOfBirth(dateNaissance);
+                dateNaissance = dateNaissance ? toDate(dateNaissance) : null;
+                // Date absente ou invalide : on garde la date par défaut (évite RangeError)
+                if (dateNaissance && !isNaN(dateNaissance.getTime())) {
+                    setDayOfBirth(dateNaissance);
+                }
 
                 //GET CLASSROOM LIST
                 const classroomList = await UtilitiesService.getAllClassrooms();
+                hasLoadedOnceRef.current = true;
                 setLoading(false);
                 let classroomDataList = [];
                 if(classroomList.length > 0) {
@@ -355,7 +381,7 @@ function Profile(props: any) {
             }
         };
         fetchData().catch(error => {
-            console.log(error);
+            console.log('[ProfileScreen] Erreur trying fetching data:', error);
             setLoading(false);
         });
     }, [selectedChild]);
@@ -377,7 +403,7 @@ function Profile(props: any) {
                         initialValues={{
                             prenom: selectedChild?.person?.prenom,
                             nom: selectedChild?.person?.nom,
-                            adresse: selectedChild?.person?.adresse,
+                            adresse: selectedChild?.person?.adresse ?? '',
                             motherPrenom:
                                 selectedChild?.enfantParents?.length > 0 && motherInformation !== null
                                     ? motherInformation?.motherPrenom
@@ -410,13 +436,13 @@ function Profile(props: any) {
                                 selectedChild?.enfantParents?.length > 0 && fatherInformation !== null
                                     ? fatherInformation?.fatherEmail
                                     : '',
-                            allergy: selectedChild?.allergy,
-                            foodRestriction: selectedChild?.foodRestriction,
-                            healthDetail: selectedChild?.healthDetail,
-                            emergencyNom1: selectedChild?.emergencyNom1,
-                            emergencyPhone1: selectedChild?.emergencyPhone1,
-                            emergencyNom2: selectedChild?.emergencyNom2,
-                            emergencyPhone2: selectedChild?.emergencyPhone2,
+                            allergy: selectedChild?.allergy ?? '',
+                            foodRestriction: selectedChild?.foodRestriction ?? '',
+                            healthDetail: selectedChild?.healthDetail ?? '',
+                            emergencyNom1: selectedChild?.emergencyNom1 ?? '',
+                            emergencyPhone1: selectedChild?.emergencyPhone1 ?? '',
+                            emergencyNom2: selectedChild?.emergencyNom2 ?? '',
+                            emergencyPhone2: selectedChild?.emergencyPhone2 ?? '',
                         }}
                         validationSchema={editProfileFormSchema}
                         onSubmit={(data: any, actions: any) => {
@@ -574,9 +600,9 @@ function Profile(props: any) {
                                 };
 
                                 request(
-                                    'POST',
+                                    'PUT',
                                     '',
-                                    '/corebase/enfants/mobile',
+                                    `/corebase/enfants/${selectedChild?.person?.id}/mobile`,
                                     selectedChildMod,
                                 )
                                     .then(response => {
@@ -586,7 +612,13 @@ function Profile(props: any) {
                                     })
                                     .catch((error: any) => {
                                         // Error message
-                                        console.log(JSON.stringify(error));
+                                        console.log('❌ Enregistrement profil:', JSON.stringify({
+                                            status: error?.response?.status,
+                                            data: error?.response?.data,
+                                            headers: error?.response?.headers,
+                                            method: error?.config?.method,
+                                            url: error?.config?.url,
+                                        }));
                                         setButtonStatus(false);
                                         snackbarShowMessage(t('snackBar.sb_error'));
                                     });
@@ -621,32 +653,44 @@ function Profile(props: any) {
                                     <Text style={{...globalStyles.titleH2, paddingLeft: 10}}>
                                         {t('child_profile.identity')}
                                     </Text>
+                                    <Text style={styles.requiredLegend}>
+                                        <Text style={styles.requiredMark}>* </Text>
+                                        {t('child_profile.required_legend')}
+                                    </Text>
                                     <View style={styles.inputLabelContainer}>
                                         <View style={styles.leftInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.first_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'prenom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.first_name')}
                                                 onChangeText={formikProps.handleChange('prenom')}
                                                 value={formikProps.values.prenom}
                                                 onBlur={formikProps.handleBlur('prenom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'prenom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'prenom')}</Text>
+                                            )}
                                         </View>
                                         <View style={styles.rightInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.last_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'nom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.last_name')}
                                                 onChangeText={formikProps.handleChange('nom')}
                                                 value={formikProps.values.nom}
                                                 onBlur={formikProps.handleBlur('nom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'nom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'nom')}</Text>
+                                            )}
                                         </View>
                                     </View>
 
@@ -878,28 +922,36 @@ function Profile(props: any) {
                                         <View style={styles.leftInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.first_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'motherPrenom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.first_name')}
                                                 onChangeText={formikProps.handleChange('motherPrenom')}
                                                 value={formikProps.values.motherPrenom}
                                                 onBlur={formikProps.handleBlur('motherPrenom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'motherPrenom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'motherPrenom')}</Text>
+                                            )}
                                         </View>
                                         <View style={styles.rightInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.last_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'motherNom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.last_name')}
                                                 onChangeText={formikProps.handleChange('motherNom')}
                                                 value={formikProps.values.motherNom}
                                                 onBlur={formikProps.handleBlur('motherNom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'motherNom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'motherNom')}</Text>
+                                            )}
                                         </View>
                                     </View>
 
@@ -910,15 +962,19 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.phone_number')}
+                                            <Text style={styles.requiredMark}> *</Text>
                                         </Text>
                                         <TextInput
-                                            style={styles.inputText}
+                                            style={[styles.inputText, fieldError(formikProps, 'motherPhone1') && styles.inputTextError]}
                                             placeholder={t('child_profile.phone_number')}
                                             onChangeText={formikProps.handleChange('motherPhone1')}
                                             value={formikProps.values.motherPhone1}
                                             onBlur={formikProps.handleBlur('motherPhone1')}
                                             editable={editable}
                                         />
+                                        {fieldError(formikProps, 'motherPhone1') && (
+                                            <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'motherPhone1')}</Text>
+                                        )}
                                     </View>
 
                                     <View
@@ -928,15 +984,19 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.email')}
+                                            <Text style={styles.requiredMark}> *</Text>
                                         </Text>
                                         <TextInput
-                                            style={styles.inputText}
+                                            style={[styles.inputText, fieldError(formikProps, 'motherEmail') && styles.inputTextError]}
                                             placeholder={t('child_profile.email')}
                                             onChangeText={formikProps.handleChange('motherEmail')}
                                             value={formikProps.values.motherEmail}
                                             onBlur={formikProps.handleBlur('motherEmail')}
                                             editable={editable}
                                         />
+                                        {fieldError(formikProps, 'motherEmail') && (
+                                            <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'motherEmail')}</Text>
+                                        )}
                                     </View>
                                 </View>
 
@@ -949,28 +1009,36 @@ function Profile(props: any) {
                                         <View style={styles.leftInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.first_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'fatherPrenom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.first_name')}
                                                 onChangeText={formikProps.handleChange('fatherPrenom')}
                                                 value={formikProps.values.fatherPrenom}
                                                 onBlur={formikProps.handleBlur('fatherPrenom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'fatherPrenom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'fatherPrenom')}</Text>
+                                            )}
                                         </View>
                                         <View style={styles.rightInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.last_name')}
+                                                <Text style={styles.requiredMark}> *</Text>
                                             </Text>
                                             <TextInput
-                                                style={styles.inputText}
+                                                style={[styles.inputText, fieldError(formikProps, 'fatherNom') && styles.inputTextError]}
                                                 placeholder={t('child_profile.last_name')}
                                                 onChangeText={formikProps.handleChange('fatherNom')}
                                                 value={formikProps.values.fatherNom}
                                                 onBlur={formikProps.handleBlur('fatherNom')}
                                                 editable={editable}
                                             />
+                                            {fieldError(formikProps, 'fatherNom') && (
+                                                <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'fatherNom')}</Text>
+                                            )}
                                         </View>
                                     </View>
 
@@ -981,15 +1049,19 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.phone_number')}
+                                            <Text style={styles.requiredMark}> *</Text>
                                         </Text>
                                         <TextInput
-                                            style={styles.inputText}
+                                            style={[styles.inputText, fieldError(formikProps, 'fatherPhone1') && styles.inputTextError]}
                                             placeholder={t('child_profile.phone_number')}
                                             onChangeText={formikProps.handleChange('fatherPhone1')}
                                             value={formikProps.values.fatherPhone1}
                                             onBlur={formikProps.handleBlur('fatherPhone1')}
                                             editable={editable}
                                         />
+                                        {fieldError(formikProps, 'fatherPhone1') && (
+                                            <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'fatherPhone1')}</Text>
+                                        )}
                                     </View>
 
                                     <View
@@ -999,15 +1071,19 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.email')}
+                                            <Text style={styles.requiredMark}> *</Text>
                                         </Text>
                                         <TextInput
-                                            style={styles.inputText}
+                                            style={[styles.inputText, fieldError(formikProps, 'fatherEmail') && styles.inputTextError]}
                                             placeholder={t('child_profile.email')}
                                             onChangeText={formikProps.handleChange('fatherEmail')}
                                             value={formikProps.values.fatherEmail}
                                             onBlur={formikProps.handleBlur('fatherEmail')}
                                             editable={editable}
                                         />
+                                        {fieldError(formikProps, 'fatherEmail') && (
+                                            <Text style={styles.fieldErrorText}>{fieldError(formikProps, 'fatherEmail')}</Text>
+                                        )}
                                     </View>
                                 </View>
 
@@ -1225,7 +1301,39 @@ function Profile(props: any) {
                                             backgroundColor={COLORS.secondary}
                                             paddingVertical={12}
                                             borderRadius={20}
-                                            onPress={formikProps.handleSubmit}
+                                            onPress={async () => {
+                                                // Valide d'abord : sinon Formik bloque sans rien afficher
+                                                const errors = await formikProps.validateForm();
+                                                if (Object.keys(errors).length > 0) {
+                                                    console.log('⚠️ Profil invalide:', JSON.stringify(errors));
+                                                    formikProps.setTouched(
+                                                        Object.keys(errors).reduce(
+                                                            (acc: any, key) => ({...acc, [key]: true}),
+                                                            {},
+                                                        ),
+                                                        false,
+                                                    );
+                                                    const fr = i18n.language.toLowerCase().startsWith('fr');
+                                                    const labels: any = {
+                                                        prenom: fr ? 'prénom enfant' : 'child first name',
+                                                        nom: fr ? 'nom enfant' : 'child last name',
+                                                        motherPrenom: fr ? 'prénom mère' : 'mother first name',
+                                                        motherNom: fr ? 'nom mère' : 'mother last name',
+                                                        motherPhone1: fr ? 'téléphone mère' : 'mother phone',
+                                                        motherEmail: fr ? 'e-mail mère' : 'mother email',
+                                                        fatherPrenom: fr ? 'prénom père' : 'father first name',
+                                                        fatherNom: fr ? 'nom père' : 'father last name',
+                                                        fatherPhone1: fr ? 'téléphone père' : 'father phone',
+                                                        fatherEmail: fr ? 'e-mail père' : 'father email',
+                                                    };
+                                                    const names = Object.keys(errors)
+                                                        .map(key => labels[key] ?? key)
+                                                        .join(', ');
+                                                    snackbarShowMessage(`${t('snackBar.sb_form_invalid')} : ${names}`);
+                                                    return;
+                                                }
+                                                formikProps.handleSubmit();
+                                            }}
                                             disabled={buttonStatus}
                                         />
                                     </View>
@@ -1303,6 +1411,25 @@ const styles = StyleSheet.create({
         color: COLORS.black,
         marginBottom: 5,
         fontWeight: '600',
+    },
+    requiredMark: {
+        color: COLORS.red,
+        fontWeight: '700',
+    },
+    requiredLegend: {
+        paddingLeft: 10,
+        marginTop: 4,
+        marginBottom: 8,
+        fontSize: 13,
+        color: COLORS.gray,
+    },
+    inputTextError: {
+        borderColor: COLORS.red,
+    },
+    fieldErrorText: {
+        color: COLORS.red,
+        fontSize: 12,
+        marginTop: 4,
     },
     inputText: {
         borderWidth: 1,

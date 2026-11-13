@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
+    FlatList,
     Keyboard,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableWithoutFeedback,
@@ -28,31 +28,35 @@ function ProductList({navigation}: TMarketingProps) {
     const {userToken} = useSelector((state:any) => state.user);
     const dispatch = useDispatch();
 
-    const handleTextChange = (text:string) => {
+    const handleTextChange = useCallback((text: string) => {
         setSearch(text);
-    }
-    const handleSubmitSearch = () => {
+    }, []);
+
+    // NOTE : la recherche est un simple filtre synchrone sur des donnees
+    // deja en memoire (aucun appel reseau) - le "setLoading(true/false)"
+    // d'origine autour de ce filtre remplacait tout l'ecran par <Loading/>
+    // pour une operation qui se termine instantanement, ce qui causait un
+    // flash inutile a chaque recherche. Supprime : le filtre s'applique
+    // directement, sans passer par l'ecran de chargement.
+    const handleSubmitSearch = useCallback(() => {
         if (search !== '') {
-            setLoading(true);
-            let filterProductList = productListData.filter(function (item: any) {
+            const filterProductList = productListData.filter((item: any) => {
                 const itemLowerCase: any = item.nom;
                 return itemLowerCase.toLowerCase().includes(search.trim().toLowerCase());
             });
             setProductSearchList(filterProductList);
-            setLoading(false);
         } else {
             setProductSearchList(productListData);
         }
-    };
+    }, [search, productListData]);
 
-    const handleClearSearch = () => {
+    const handleClearSearch = useCallback(() => {
         setSearch('');
         setProductSearchList(productListData);
-    };
+    }, [productListData]);
 
     useEffect(() => {
         const fetchData = async () => {
-            //setLoading(true);
             try {
                 const productListList = await MarketingService.getAllProduct();
                 setProductListData(productListList);
@@ -73,6 +77,18 @@ function ProductList({navigation}: TMarketingProps) {
         });
     }, []);
 
+    const renderProductItem = useCallback(({item}: {item: TMarketing}) => (
+        <ProductItem data={item} />
+    ), []);
+    const keyExtractorProduct = useCallback((item: TMarketing) => String(item.id), []);
+    const ListEmptyComponent = useCallback(() => (
+        <View>
+            <Text style={styles.emptyText}>
+                {t('more.empty_product')}
+            </Text>
+        </View>
+    ), [t]);
+
     if (loading) {
         return <Loading />;
     }
@@ -87,24 +103,13 @@ function ProductList({navigation}: TMarketingProps) {
                     handleClearSearch={handleClearSearch}
                     handleSubmitSearch={handleSubmitSearch}
                 />
-                <ScrollView style={styles.listContainer}>
-                    {(productSearchList.length === 0 || false) && (
-                        <View>
-                            <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                                {t('more.empty_product')}
-                            </Text>
-                        </View>
-                    )}
-                    {productSearchList.length > 0 &&
-                        productSearchList.map((product: TMarketing) => {
-                            return (
-                                <ProductItem
-                                    key={product.id}
-                                    data={product}
-                                />
-                            );
-                        })}
-                </ScrollView>
+                <FlatList
+                    style={styles.listContainer}
+                    data={productSearchList}
+                    renderItem={renderProductItem}
+                    keyExtractor={keyExtractorProduct}
+                    ListEmptyComponent={ListEmptyComponent}
+                />
             </View>
         </TouchableWithoutFeedback>
     );
@@ -138,5 +143,9 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 10,
         paddingTop: 15,
+    },
+    emptyText: {
+        flex: 1,
+        textAlign: 'center',
     },
 });

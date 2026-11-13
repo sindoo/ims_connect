@@ -1,4 +1,4 @@
-import React, {JSX, useEffect, useState} from "react";
+import React, {useCallback, useMemo, useState} from "react";
 import {View, Text, StyleSheet, Platform, useColorScheme, Pressable, TouchableOpacity, Linking} from "react-native";
 import {COLORS, IMAGES} from "../../../constants";
 import {StatusBar} from "expo-status-bar";
@@ -13,7 +13,6 @@ import {Badge} from "react-native-paper";
 //import { useNavigation, DrawerActions } from 'expo-router/react-navigation';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
-import NotificationHeader from "./NotificationHeader";
 import {router} from "expo-router";
 
 const IMS_WEBSITE = 'https://www.ivorymontessorischool.com/';
@@ -24,50 +23,55 @@ const CustomHeader = ({ title }) => {
     const {i18n} = useTranslation();
     const {notificationNumber} = useSelector((state: any) => state.notification);
     const {selectedChild} = useSelector((state: any) => state.child);
-    const [childrenSelected, setChildrenSelected] = useState<any>(null);
     const [modal, setModal] = useState(false);
     const [notifModal, setNotifModal] = useState(false);
     const [languageValue, setLanguageValue] = useState(i18n.language);
     const dispatch = useDispatch();
     const navigation = useNavigation();
 
-    const handleLanguageChange = async (lang: any) => {
+    // ✅ "childrenSelected" etait un state mis a jour via un useEffect qui ne
+    // faisait que deriver "selectedChild" (aucune autre logique). Ca forcait
+    // un rendu SUPPLEMENTAIRE a chaque changement d'enfant selectionne : un
+    // premier rendu avec l'ancienne valeur, puis l'effet qui se declenche et
+    // provoque un second rendu avec la bonne valeur - un aller-retour de
+    // rendu evitable a chaque fois que l'avatar doit changer dans le header.
+    // Remplace par une valeur calculee directement pendant le rendu.
+    const childrenSelected = selectedChild !== null ? selectedChild?.person : selectedChild;
+
+    const handleLanguageChange = useCallback(async (lang: any) => {
         try {
             setLanguageValue(lang);
             await i18n.changeLanguage(lang);
             dispatch(changeAppLanguage(lang));
-            const timerId = setTimeout(() => {
+            setTimeout(() => {
                 setModal(false);
             }, 500);
-
-            return () => {
-                clearTimeout(timerId);
-            }
         }
         catch (error) {
             console.log(error)
         }
-    };
+    }, [i18n, dispatch]);
 
-    const openDrawMenu = () => {
+    const openDrawMenu = useCallback(() => {
         navigation.dispatch(DrawerActions.toggleDrawer());
-    };
+    }, [navigation]);
 
-    const handleNotificationRoute = () => {
+    const handleNotificationRoute = useCallback(() => {
         //setNotifModal(true);
         router.push('pages/notification');
-    }
+    }, []);
 
-    useEffect(() => {
-        setChildrenSelected(selectedChild !== null ? selectedChild?.person : selectedChild);
-    }, [selectedChild]);
+    // ✅ containerIOS et containerAndroid ont exactement les memes valeurs -
+    // pas besoin de refaire un choix conditionnel + un nouvel objet
+    // "{backgroundColor: theme.background}" (et un nouveau tableau) a
+    // CHAQUE rendu. Style de base hoiste, seul le fond depend du theme.
+    const containerStyle = useMemo(
+        () => [styles.container, {backgroundColor: theme.background}],
+        [theme.background]
+    );
 
     return (
-        <View style={
-            Platform.OS === 'ios'
-                ? [styles.containerIOS, {backgroundColor: theme.background}]
-                : [styles.containerAndroid, {backgroundColor: theme.background}]}
-        >
+        <View style={containerStyle}>
             <StatusBar value="auto" translucent backgroundColor="transparent" />
 
             <ImageBackground source={IMAGES.headerBackground}>
@@ -81,7 +85,7 @@ const CustomHeader = ({ title }) => {
                 <View style={styles.header}>
                     <View style={styles.titleBox}>
                         <View style={styles.headerTitle}>
-                            <Text style={{...styles.headerText}}>{title}</Text>
+                            <Text style={styles.headerText}>{title}</Text>
                         </View>
                     </View>
 
@@ -98,11 +102,11 @@ const CustomHeader = ({ title }) => {
                         <View style={styles.notification}>
                             {/* setNotifModal(true) */}
 
-                            <Pressable onPress={() => handleNotificationRoute()}>
+                            <Pressable onPress={handleNotificationRoute}>
                                 <Badge
                                     visible={true}
                                     size={18}
-                                    style={{zIndex: 10}}
+                                    style={styles.badge}
                                     theme={{colors: {primary: COLORS.primary}}}>
                                     {notificationNumber}
                                 </Badge>
@@ -110,7 +114,7 @@ const CustomHeader = ({ title }) => {
                                     name="notifications"
                                     color={COLORS.secondary}
                                     size={30}
-                                    style={{right: 2, marginTop: -13}}
+                                    style={styles.notifIcon}
                                 />
                             </Pressable>
                         </View>
@@ -123,7 +127,7 @@ const CustomHeader = ({ title }) => {
                                             : IMAGES.avatar
                                     }
                                     style={styles.avatar}
-                                /> as JSX.Element
+                                />
                             )}
                         </Pressable>
                     </View>
@@ -135,11 +139,6 @@ const CustomHeader = ({ title }) => {
                         handleLanguageChange={handleLanguageChange}
                     />
 
-                    <NotificationHeader
-                        notifModal={notifModal}
-                        setNotifModal={setNotifModal}
-                        navigation={navigation}
-                    />
                 </View>
             </ImageBackground>
 
@@ -147,17 +146,13 @@ const CustomHeader = ({ title }) => {
     );
 };
 
-export default CustomHeader;
+// Rendu par la navigation comme header de chaque ecran : memoise pour eviter
+// un re-rendu quand la navigation recalcule ses options sans que "title"
+// (ou les donnees Redux lues ici) n'ait reellement change.
+export default React.memo(CustomHeader);
 
 const styles = StyleSheet.create({
-    containerIOS: {
-        height: 75,
-        overflow: 'hidden',
-        marginTop: 0,
-        borderBottomColor: COLORS.greyMedium,
-        borderBottomWidth: 1
-    },
-    containerAndroid: {
+    container: {
         height: 75,
         overflow: 'hidden',
         marginTop: 0,
@@ -255,6 +250,13 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         justifyContent: 'flex-end',
         flexDirection: 'row',
+    },
+    badge: {
+        zIndex: 10,
+    },
+    notifIcon: {
+        right: 2,
+        marginTop: -13,
     },
 
 });

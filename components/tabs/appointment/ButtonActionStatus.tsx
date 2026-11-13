@@ -1,4 +1,4 @@
-import {JSX, useCallback, useEffect, useMemo, useState} from "react";
+import {JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
     View,
     Text,
@@ -11,6 +11,8 @@ import {
     Pressable,
     TextInput,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import * as yup from 'yup';
 import {useTranslation} from "react-i18next";
@@ -94,6 +96,11 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
     const [loading, setLoading] = useState(false);
     const [buttonStatus, setButtonStatus] = useState(false);
     const [bntActionStatus, setBntActionStatus] = useState('');
+
+    // Modal d'annulation (raison saisie par le parent)
+    const [cancelModal, setCancelModal] = useState(false);
+    const [cancelComment, setCancelComment] = useState('');
+    const editScrollRef = useRef<ScrollView>(null);
 
     // États des dates/heures
     const newDate = new Date();
@@ -284,15 +291,31 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
         executeAppointmentAction('confirm', dataToSend, t('appointment.success_save'));
     }, [buildAppointmentData, buildCreneauData, data, executeAppointmentAction, t]);
 
-    // Annulation du rendez-vous
+    // Annulation du rendez-vous : ouvre le modal de saisie de la raison
     const handleCancelAppointment = useCallback(() => {
+        setCancelComment('');
+        setCancelModal(true);
+    }, []);
+
+    const handleCloseCancelModal = useCallback(() => {
+        setCancelModal(false);
+        setCancelComment('');
+    }, []);
+
+    // Confirmation de l'annulation avec la raison (creneauRdvEnfantParents[0].cancelComment)
+    const handleConfirmCancel = useCallback(() => {
         const dataToSend = buildAppointmentData({
             creneauRdvs: [
-                buildCreneauData({meetingStatus: 'CANCEL',}),
+                buildCreneauData({
+                    meetingStatus: 'CANCEL',
+                    cancelComment: cancelComment.trim(),
+                }),
             ],
         });
+        setCancelModal(false);
         executeAppointmentAction('cancel', dataToSend, t('snackBar.sb_succes_save'));
-    }, [buildAppointmentData, buildCreneauData, executeAppointmentAction, t]);
+        setCancelComment('');
+    }, [buildAppointmentData, buildCreneauData, executeAppointmentAction, cancelComment, t]);
 
     // ========== FONCTIONS D'ÉDITION ==========
     const setupEditData = useCallback((dateDebut: Date, dateFin: Date, meetingStatus?: string) => {
@@ -430,6 +453,8 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
             dateDebut: getTime(dateDebut),
             dateFin: getTime(dateFin),
         };
+        // Raison du report saisie par le parent (creneauRdvEnfantParents[0].reportComment)
+        const reportComment = (formData.reportComment || '').trim();
 
         if (bntActionStatus === 'EDIT') {
             if (data.meetingStatus === 'WAIT' && isOwner) {
@@ -448,6 +473,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                         buildCreneauData({
                             ...creneauUpdate,
                             meetingStatus: 'REPORT',
+                            reportComment,
                         }),
                     ],
                 });
@@ -458,6 +484,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                         buildCreneauData({
                             ...creneauUpdate,
                             meetingStatus: 'REPORT',
+                            reportComment,
                         }),
                     ],
                 });
@@ -468,6 +495,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                     buildCreneauData({
                         ...creneauUpdate,
                         meetingStatus: 'REPORT',
+                        reportComment,
                     }),
                 ],
             });
@@ -560,7 +588,6 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                 <TouchableOpacity
                     style={[styles.button, getButtonStyle('cancel')]}
                     onPress={handleCancelAppointment}
-                    disabled={!isOwner}
                 >
                     <Text style={styles.buttonTextCancel}>{t('upcomingAppointment.cancel_btn')}</Text>
                 </TouchableOpacity>
@@ -631,6 +658,12 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
         return null;
     }, [status, statusDeadline, isOwner, getButtonStyle, isStatusInGroup, t, handleConfirmAppointment, handleRescheduleAppointment]);
 
+    // Le formulaire produit un report (reprogrammation d'un rdv confirmé, ou report par le parent)
+    const isReportForm =
+        bntActionStatus === 'CONFIRM' ||
+        (bntActionStatus === 'EDIT' &&
+            (data.meetingStatus === 'REPORT' || (data.meetingStatus === 'WAIT' && !isOwner)));
+
     // ========== COMPOSANT COMMUN POUR LES CHAMPS DE SAISIE ==========
     const renderTextField = useCallback((
         label: string,
@@ -640,7 +673,8 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
         placeholder?: string,
         editable: boolean = true,
         multiline: boolean = false,
-        error?: string
+        error?: string,
+        onFocus?: () => void
     ) => (
         <View style={styles.inputField}>
             <Text style={styles.modalInputLabel}>{label}</Text>
@@ -653,6 +687,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                 onChangeText={onChange}
                 value={value}
                 onBlur={onBlur}
+                onFocus={onFocus}
             />
             {error && <Text style={globalStyles.errorText}>{error}</Text>}
         </View>
@@ -678,6 +713,11 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
             <Modal visible={editModal} animationType="slide">
                 <SafeAreaProvider>
                     <SafeAreaView style={styles.safeArea}>
+                        <KeyboardAvoidingView
+                            style={{flex: 1}}
+                            behavior="padding"
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+                        >
                         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                             <View style={styles.modalContainer}>
                                 <View style={styles.modalHeader}>
@@ -691,12 +731,22 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                                     </TouchableWithoutFeedback>
                                 </View>
 
-                                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                                <ScrollView
+                                    ref={editScrollRef}
+                                    style={styles.modalContent}
+                                    showsVerticalScrollIndicator={false}
+                                    keyboardShouldPersistTaps="handled"
+                                    contentContainerStyle={{paddingBottom: 40}}
+                                >
                                     <Formik
                                         initialValues={{
                                             appointmentTitle: data.objet || '',
                                             appointmentDescription: data.details || '',
                                             appointmentTeacher: '',
+                                            reportComment:
+                                                bntActionStatus === 'EDIT' && data.meetingStatus === 'REPORT'
+                                                    ? data.creneauRdvs?.[0]?.creneauRdvEnfantParents?.[0]?.reportComment || ''
+                                                    : '',
                                         }}
                                         validationSchema={newAppointmentFormSchema}
                                         onSubmit={handleSubmitEdit}
@@ -926,6 +976,19 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                                                     onCancel={() => setOpenEndTimePicker(false)}
                                                 />
 
+                                                {/* Raison du report (formulaire de report uniquement) */}
+                                                {isReportForm && renderTextField(
+                                                    t('appointmentDetails.report_reason_label'),
+                                                    formikProps.values.reportComment,
+                                                    formikProps.handleChange('reportComment'),
+                                                    formikProps.handleBlur('reportComment'),
+                                                    t('appointmentDetails.report_reason_placeholder'),
+                                                    true,
+                                                    true,
+                                                    undefined,
+                                                    () => setTimeout(() => editScrollRef.current?.scrollToEnd({animated: true}), 250)
+                                                )}
+
                                                 {/* Bouton de soumission */}
                                                 <FlatButton
                                                     title={t('allAppointment.edit_form')}
@@ -944,6 +1007,7 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                                 </ScrollView>
                             </View>
                         </TouchableWithoutFeedback>
+                        </KeyboardAvoidingView>
 
                         {/* Snackbar intégré */}
                         <Snackbar
@@ -962,6 +1026,54 @@ const ButtonActionStatus: React.FC<ButtonActionStatusProps> = ({
                         >
                             {localSnackbar.message}
                         </Snackbar>
+                    </SafeAreaView>
+                </SafeAreaProvider>
+            </Modal>
+
+            {/* Modal d'annulation */}
+            <Modal visible={cancelModal} animationType="slide" onRequestClose={handleCloseCancelModal}>
+                <SafeAreaProvider>
+                    <SafeAreaView style={styles.safeArea}>
+                        <KeyboardAvoidingView
+                            style={{flex: 1}}
+                            behavior="padding"
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+                        >
+                        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                            <View style={styles.modalContainer}>
+                                <View style={styles.modalHeader}>
+                                    <View style={styles.modalTitle}>
+                                        <Text style={styles.modalTitleText}>
+                                            {t('appointmentDetails.cancel_modal_title')}
+                                        </Text>
+                                    </View>
+                                    <TouchableWithoutFeedback onPress={handleCloseCancelModal}>
+                                        <MaterialIcons name="close" size={22} color={COLORS.gray} />
+                                    </TouchableWithoutFeedback>
+                                </View>
+                                <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
+                                    {renderTextField(
+                                        t('appointmentDetails.cancel_reason_label'),
+                                        cancelComment,
+                                        setCancelComment,
+                                        () => {},
+                                        t('appointmentDetails.cancel_reason_placeholder'),
+                                        true,
+                                        true
+                                    )}
+                                    <FlatButton
+                                        title={t('appointmentDetails.cancel_confirm_btn')}
+                                        fontWeight="500"
+                                        fontSize={16}
+                                        backgroundColor={COLORS.redIms}
+                                        paddingVertical={12}
+                                        borderRadius={20}
+                                        onPress={handleConfirmCancel}
+                                    />
+                                </ScrollView>
+                            </View>
+                        </TouchableWithoutFeedback>
+                        </KeyboardAvoidingView>
                     </SafeAreaView>
                 </SafeAreaProvider>
             </Modal>

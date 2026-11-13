@@ -44,6 +44,21 @@ function SurveyForm({
   const {selectedChild} = useSelector((state: any) => state.child);
   const {user, userFCMToken} = useSelector((state: any) => state.user);
 
+  // Réponse déjà donnée par le parent connecté (voir SurveyService.getParentAnswer)
+  const previousAnswer: string = (() => {
+    const answer = SurveyService.getParentAnswer(data, user, selectedChild);
+    const value = answer?.reponse ?? answer?.libelle ?? '';
+    return typeof value === 'string' ? value : String(value);
+  })();
+
+  useEffect(() => {
+    if (surveyStatus) {
+      // Aide au diagnostic : réponse reçue du serveur pour ce sondage
+      console.log('📋 Sondage ouvert:', data?.id, 'réponse:', previousAnswer);
+      console.log(JSON.stringify(data))
+    }
+  }, [surveyStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleEditButton = () => {
     setButtonEdit(false);
     setInputStatus(true);
@@ -52,7 +67,7 @@ function SurveyForm({
   useEffect(() => {
     const fetchData = () => {
       if(data !== undefined){
-        const valueStatus = data?.sondageReponseDTOModel?.reponse === '';
+        const valueStatus = previousAnswer === '';
         setStatusEdit(valueStatus);
         setButtonEdit(!valueStatus);
         //setButtonEdit(valueStatus);
@@ -64,7 +79,7 @@ function SurveyForm({
       }
     };
     fetchData();
-  }, [data]);
+  }, [data, previousAnswer]);
 
   return (
     <Modal
@@ -117,11 +132,9 @@ function SurveyForm({
                     } as StyleSheet}>{`${data.question}`}</Text>
 
                   <Formik
+                    enableReinitialize
                     initialValues={{
-                      opinionSurvey:
-                        data?.sondageReponseDTOModel?.reponse !== ''
-                          ? data?.sondageReponseDTOModel?.reponse
-                          : '',
+                      opinionSurvey: previousAnswer,
                     }}
                     validationSchema={surveyFormSchema}
                     onSubmit={async (surveyResponse: any, actions: any) => {

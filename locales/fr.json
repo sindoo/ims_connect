@@ -39,7 +39,10 @@
         "dish": "Plat",
         "dessert": "Dessert",
         "alert_notification": "Notification",
-        "alert_notification_close": "Fermer"
+        "alert_notification_close": "Fermer",
+        "alert_load_error": "Impossible de charger le contenu",
+        "current_week": "Semaine courrante",
+        "next_week": "Semaine suivante"
     },
     "myDayAtIms": {
         "title": "Ma Journée à IMS",
@@ -85,7 +88,8 @@
         "conversation_public": "Conversation publique",
         "conversation_private": "Conversation privée",
         "description_public_conversation": "Le second parent peut interagir dans la conversation",
-        "description_private_conversation": "Le second parent ne peut pas interagir dans la conversation"
+        "description_private_conversation": "Le second parent ne peut pas interagir dans la conversation",
+        "conversation_close": "Discussion close"
     },
     "conversationMessage": {
         "title": "Message",
@@ -145,6 +149,7 @@
         "no_duty": "Pas de permanence samedi et dimanche",
         "no_right_date": "Cette date n'est pas valide",
         "rdv_date_not_free": "Ce créneau horaire est déjà réservé",
+        "no_class_for_child": "Aucune classe n'est associée à cet enfant. Contactez l'école.",
         "time_not_available": "Dates réservés ",
         "information_dates_not_available": "Information",
         "information_text_dates_not_available": "La liste des dates déjà réservées par d'autres parents qui ne peuvent plus être choisies",
@@ -168,7 +173,15 @@
         "edit_btn": "Modifier",
         "date_proposition": "Nouvelle proposition de date",
         "parent": "Parent",
-        "teacher": "Educateur-rice"
+        "teacher": "Educateur-rice",
+        "report_reason_label": "Raison du report",
+        "report_reason_placeholder": "Expliquez la raison du report (facultatif)",
+        "teacher_report_reason": "Raison du report de l'interlocuteur",
+        "parent_report_reason": "Raison du report du parent",
+        "cancel_modal_title": "Annuler le rendez-vous",
+        "cancel_reason_label": "Raison de l'annulation",
+        "cancel_reason_placeholder": "Expliquez la raison de l'annulation (facultatif)",
+        "cancel_confirm_btn": "Confirmer l'annulation"
     },
     "child_profile": {
         "identity": "Identité",
@@ -190,7 +203,10 @@
         "health_issues": "Problème de santé",
         "emergency_contact": "Contact d'urgence",
         "first_last_name": "Prénom(s) et nom",
-        "image_right": "Droit à l'image"
+        "image_right": "Droit à l'image",
+        "required_legend": "Champs obligatoires",
+        "invalid_email": "Adresse e-mail invalide",
+        "min_length": "3 caractères minimum"
     },
     "profile_choice": {
         "title": "Choix du profil enfant"
@@ -226,7 +242,15 @@
         "marketing": "Commerce",
         "survey": "Sondage",
         "school_document": "Document scolaire",
-        "alertmessage": "Autre"
+        "alertmessage": "Autre",
+        "delete_success": "Succès de la suppression de la Notification",
+        "delete_error": "Erreur survenue lors de la suppression",
+        "confirm_delete": "Confirmez-vous la suppression",
+        "delete": "Supprimer",
+        "clear_all": "Supprimer toutes les notifications",
+        "confirm_delete_all": "Confirmez-vous la suppression",
+        "delete_all_success": "Toutes les notifications ont été supprimées",
+        "delete_all_error": "Erreur survenue lors de la suppression des notifications"
     },
     "more": {
         "pictures": "Mes photos",
@@ -247,7 +271,7 @@
         "book_language": "Langue",
         "all_book": "Bibliothèque",
         "my_borrowings": "Emprunté(s)",
-        "borrow_status": "Emprunté",
+        "borrow_status": "Emprunté par un enfant",
         "borrow_history": "Historique",
         "borrow": "Emprunter",
         "empty_library": "Aucun livre pour le moment",
@@ -303,18 +327,32 @@
         "error_loading": "Erreur lors du chargement des données",
         "zoom_here": "zoom",
         "unknown": "Inconnu",
-        "return_date": "Date de retour :"
+        "return_date": "Date de retour ",
+        "return_deadline": "À rendre avant le"
     },
     "survey": {
         "description_placeholder": "Votre avis",
         "answer": "Réponse"
     },
+    "schoolDocument": {
+        "save_title": "Document",
+        "save_message": "Le document a été enregistré sur votre téléphone",
+        "download_error_message": "Une erreur est survenue lors de l'enregistrement du document."
+    },
     "imageChild": {
-        "selected": "sélectionnée(s)"
+        "selected": "sélectionnée(s)",
+        "access_authorisation_title": "Autorisation requise",
+        "access_authorisation_message": "L'accès à vos photos est requis pour enregistrer l'image",
+        "save_picture_title": "Photo",
+        "save_picture_message": "La photo a été ajoutée à votre galerie",
+        "download_msg_error_title": "Échec du téléchargement,",
+        "download_error_message": "Une erreur est survenue lors de l'enregistrement de la photo."
     },
     "snackBar": {
         "sb_succes_save": "Succès de l'enregistrement",
+        "sb_succes_cancel": "Succès de l'annulation",
         "sb_error" : "Echec de l'enregistrement",
+        "sb_form_invalid": "Champs invalides ou manquants",
         "sb_error_delete" : "Echec de la suppression",
         "sb_error_action": "Echec de l'enregistrement",
         "sb_error_username": "Nom d'utilisateur incorrect",
@@ -326,5 +364,8 @@
     "systemTranslation": {
         "tab_nav_more": "Plus",
         "features_not_available": "Disponible bientôt"
+    },
+    "updateBanner": {
+        "message": "Une nouvelle version ({{version}}) est disponible — Mettre à jour"
     }
 }

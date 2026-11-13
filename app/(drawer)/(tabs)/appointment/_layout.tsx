@@ -3,12 +3,6 @@ import ViewThemed from "../../../../components/ui/ViewThemed";
 import {globalStyles} from "../../../../style/Global";
 import {COLORS} from "../../../../constants";
 import {withLayoutContext} from "expo-router";
-/*import {
-    MaterialTopTabNavigationEventMap,
-    MaterialTopTabNavigationOptions,
-    //createMaterialTopTabNavigator,
-} from "expo-router/js-top-tabs";
-import { ParamListBase, TabNavigationState } from 'expo-router/react-navigation';*/
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
@@ -21,12 +15,6 @@ import {checkAppState, checkTokenExpired} from "../../../../services/GeneralServ
 import Loading from "../../../../components/ui/Loading";
 
 const { Navigator } = createMaterialTopTabNavigator();
-/*export const MaterialTopTabs = withLayoutContext<
-    MaterialTopTabNavigationOptions,
-    typeof Navigator,
-    TabNavigationState<ParamListBase>,
-    MaterialTopTabNavigationEventMap
->(Navigator);*/
 const MaterialTopTabs = withLayoutContext(createMaterialTopTabNavigator().Navigator);
 const AppointmentLayout = () => {
     const {t} = useTranslation();
@@ -59,10 +47,6 @@ const AppointmentLayout = () => {
                     const presetAppointment = await AppointmentService.getAllPresetAppointment(selectedChild);
                     dispatch(setPresetAppointmentList(presetAppointment));
 
-                    if(user !== null) {
-                        // GET ALL NOTIFICATIONS AND DELETE OLD ONE
-                        //await updateHeaderNotificationEveryWhere(user.uuid, dispatch);
-                    }
                 }
                 else {
                     setLoading(false);
@@ -71,7 +55,7 @@ const AppointmentLayout = () => {
                 checkTokenExpired(userToken, dispatch);
             }
             catch (error) {
-                console.log("Error fetching data in AppointmentLayout:", error);
+                console.log("Error fetching data in AppointmentLayout:", JSON.stringify(error));
                 setLoading(false);
                 checkTokenExpired(userToken, dispatch);
             }
@@ -126,9 +110,6 @@ const AppointmentLayout = () => {
                             fontWeight: '700',
                         },
                     }}
-                    initialParams={{
-                        //selectedPeriodId: selectedPeriod.idperiod
-                    }}
                 />
 
                 <MaterialTopTabs.Screen
@@ -142,9 +123,6 @@ const AppointmentLayout = () => {
                             fontWeight: '700',
                         },
                     }}
-                    initialParams={{
-                        //selectedPeriodId: selectedPeriod.idperiod,
-                    }}
                 />
 
                 <MaterialTopTabs.Screen
@@ -157,9 +135,6 @@ const AppointmentLayout = () => {
                             fontSize: 15,
                             fontWeight: '700',
                         },
-                    }}
-                    initialParams={{
-                        //selectedPeriodId: selectedPeriod.idperiod,
                     }}
                 />
             </MaterialTopTabs>

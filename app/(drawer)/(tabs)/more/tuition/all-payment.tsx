@@ -1,7 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
+    FlatList,
     Keyboard,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableWithoutFeedback,
@@ -42,17 +42,25 @@ function PaymentList(props) {
     const {userToken} = useSelector((state:any) => state.user);
     const dispatch = useDispatch();
 
-    const handleTuitionFeesAmountPaymentList = async (tuitionYearId: number, tuitionFeesTypeId: number) => {
+    // NOTE IMPORTANT : cette fonction recevait deja tuitionYearId et
+    // tuitionFeesTypeId en parametres mais utilisait par erreur les valeurs
+    // de state (tuitionYearValue / paymentTypeValue) a la place. Comme les
+    // setState (setTuitionYearValue/setPaymentTypeValue) sont asynchrones,
+    // l'appel utilisait la VALEUR PRECEDENTE au lieu de la nouvelle valeur
+    // choisie par l'utilisateur : changer d'annee ou de type de frais
+    // pouvait donc afficher les montants/paiements de l'ancienne selection.
+    // Corrige pour utiliser les parametres recus.
+    const handleTuitionFeesAmountPaymentList = useCallback(async (tuitionYearId: number, tuitionFeesTypeId: number) => {
         try {
             const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
             if(groupIdReq !== undefined) {
                 // GET CHILD TUITION FEES AMOUNT
                 const groupId = groupIdReq.groupesectionId;
-                let childTuitionInfo = await PaymentService.getTuitionFeesAmountByTuitionTypeId(
+                const childTuitionInfo = await PaymentService.getTuitionFeesAmountByTuitionTypeId(
                     selectedChild.person.id,
                     groupId,
-                    paymentTypeValue,
-                    tuitionYearValue
+                    tuitionFeesTypeId,
+                    tuitionYearId
                 );
                 const feesStatus = {
                     montantFacture: new Intl.NumberFormat('fr-FR').format(
@@ -69,7 +77,7 @@ function PaymentList(props) {
 
                 // GET CHILD PAYMENT LIST BY TUITION TYPE SELECTED
                 const filterPaymentList = paymentOriginalList.filter(
-                    (payment: any) => payment.scolariteTypeId === paymentTypeValue,
+                    (payment: any) => payment.scolariteTypeId === tuitionFeesTypeId,
                 );
                 setSchoolingPaymentList(filterPaymentList);
             }
@@ -78,82 +86,106 @@ function PaymentList(props) {
             setTuitionFeesAmount({ montantFacture: '0', montantPayer: '0', montantSolde: '0' });
             setSchoolingPaymentList([]);
         }
-    }
-    const onTuitionYearValueChange = async (tuitionYearId: number) => {
+    }, [selectedChild, paymentOriginalList]);
+
+    const onTuitionYearValueChange = useCallback(async (tuitionYearId: number) => {
         setLoading(true);
         await handleTuitionFeesAmountPaymentList(tuitionYearId, paymentTypeValue);
         setLoading(false);
-    }
-    const onChangePaymentTypeValue = async (tuitionFeesTypeId: any) => {
+    }, [handleTuitionFeesAmountPaymentList, paymentTypeValue]);
+
+    const onChangePaymentTypeValue = useCallback(async (tuitionFeesTypeId: any) => {
         setLoading(true);
-        await handleTuitionFeesAmountPaymentList(tuitionYearValue, paymentTypeValue);
+        await handleTuitionFeesAmountPaymentList(tuitionYearValue, tuitionFeesTypeId);
         setLoading(false);
-    };
+    }, [handleTuitionFeesAmountPaymentList, tuitionYearValue]);
 
     useEffect(() => {
         const fetchData = async () => {
-           try {
-               if(selectedChild !== null) {
-                   // GET ALL TUITION YEARS
-                   const tuitionYears = await PaymentService.getTuitionYears();
-                   const currentYear = await PaymentService.getCurrentTuitionYear(tuitionYears);
-                   if(currentYear !== null) {
-                       setTuitionCurrentYear(currentYear);
-                       setTuitionYearData(tuitionYears);
-                       setTuitionYearValue(currentYear.id);
+            try {
+                if(selectedChild !== null) {
+                    // GET ALL TUITION YEARS
+                    const tuitionYears = await PaymentService.getTuitionYears();
+                    const currentYear = await PaymentService.getCurrentTuitionYear(tuitionYears);
+                    if(currentYear !== null) {
+                        setTuitionCurrentYear(currentYear);
+                        setTuitionYearData(tuitionYears);
+                        setTuitionYearValue(currentYear.id);
 
-                       //GET TUITION FEES TYPE
-                       const tuitionFeesTypeData = await PaymentService.getTuitionFeesType();
-                       const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, currentYear.id);
-                       if(groupIdReq !== undefined) {
-                           const groupId = groupIdReq.groupesectionId;
-                           const childTuitionFeesData = await PaymentService.getChildTuitionFees(selectedChild.person.id, groupId, currentYear.id);
-                           const tuitionFeesDataList: any = PaymentService.reformatTuitionFees(tuitionFeesTypeData, childTuitionFeesData);
-                           setPaymentTypeData(tuitionFeesDataList);
+                        // GET TUITION FEES TYPE + GROUP ID : ces deux appels
+                        // sont independants l'un de l'autre, on les lance
+                        // en parallele au lieu de les attendre l'un apres l'autre.
+                        const [tuitionFeesTypeData, groupIdReq] = await Promise.all([
+                            PaymentService.getTuitionFeesType(),
+                            PaymentService.getTuitionDataGroupYear(selectedChild.person.id, currentYear.id),
+                        ]);
+                        if(groupIdReq !== undefined) {
+                            const groupId = groupIdReq.groupesectionId;
+                            const today = getTime(new Date());
 
-                           //GET ALL PAYMENT LIST
-                           const today = getTime(new Date());
-                           const paymentListList = await PaymentService.getAllChildPayment(selectedChild.person.id, groupId, currentYear.id, today);
-                           const paymentListFormatted = await PaymentService.reformatChildPaymentList(
-                               paymentListList,
-                               tuitionFeesDataList,
-                           );
-                           setSchoolingPaymentList(paymentListFormatted);
-                           setPaymentOriginalList(paymentListFormatted);
+                            // GET CHILD TUITION FEES + PAYMENT LIST : ces deux
+                            // appels sont eux aussi independants (aucun ne
+                            // depend du resultat de l'autre), on les parallelise.
+                            const [childTuitionFeesData, paymentListList] = await Promise.all([
+                                PaymentService.getChildTuitionFees(selectedChild.person.id, groupId, currentYear.id),
+                                PaymentService.getAllChildPayment(selectedChild.person.id, groupId, currentYear.id, today),
+                            ]);
 
-                           // GET CHILD TUITION FEES AMOUNT
-                           const childTuitionInfo = await PaymentService.getChildTuitionFees(selectedChild.person.id, groupId, currentYear.id);
-                           const feesStatus = {
-                               montantFacture: new Intl.NumberFormat('fr-FR').format(
-                                   childTuitionInfo?.montantFacture,
-                               ),
-                               montantPayer: new Intl.NumberFormat('fr-FR').format(
-                                   childTuitionInfo?.montantPayer,
-                               ),
-                               montantSolde: new Intl.NumberFormat('fr-FR').format(
-                                   childTuitionInfo?.montantSolde,
-                               ),
-                           };
-                           setTuitionFeesAmount(feesStatus);
-                       }
-                       setLoading(false);
-                   }
-               }
-               setLoading(false);
+                            const tuitionFeesDataList: any = PaymentService.reformatTuitionFees(tuitionFeesTypeData, childTuitionFeesData);
+                            setPaymentTypeData(tuitionFeesDataList);
 
-               checkTokenExpired(userToken, dispatch);
-           }
-           catch (error) {
-               //console.log(JSON.stringify(error))
-               console.log(error);
-               setLoading(false);
-               checkTokenExpired(userToken, dispatch);
-           }
+                            const paymentListFormatted = await PaymentService.reformatChildPaymentList(
+                                paymentListList,
+                                tuitionFeesDataList,
+                            );
+                            setSchoolingPaymentList(paymentListFormatted);
+                            setPaymentOriginalList(paymentListFormatted);
+
+                            // GET CHILD TUITION FEES AMOUNT : on reutilise
+                            // childTuitionFeesData deja recupere ci-dessus au
+                            // lieu de rappeler exactement la meme requete
+                            // PaymentService.getChildTuitionFees(...) une
+                            // seconde fois (appel redondant supprime).
+                            const feesStatus = {
+                                montantFacture: new Intl.NumberFormat('fr-FR').format(
+                                    childTuitionFeesData?.montantFacture,
+                                ),
+                                montantPayer: new Intl.NumberFormat('fr-FR').format(
+                                    childTuitionFeesData?.montantPayer,
+                                ),
+                                montantSolde: new Intl.NumberFormat('fr-FR').format(
+                                    childTuitionFeesData?.montantSolde,
+                                ),
+                            };
+                            setTuitionFeesAmount(feesStatus);
+                        }
+                    }
+                }
+                setLoading(false);
+                checkTokenExpired(userToken, dispatch);
+            }
+            catch (error) {
+                console.log(error);
+                setLoading(false);
+                checkTokenExpired(userToken, dispatch);
+            }
         };
         fetchData().catch(error => {
             console.log(error);
         });
     }, [selectedChild]);
+
+    const renderPaymentItem = useCallback(({item}: {item: any}) => (
+        <PaymentItem data={item} />
+    ), []);
+    const keyExtractorPayment = useCallback((item: any) => String(item.id), []);
+    const ListEmptyComponent = useCallback(() => (
+        <View>
+            <Text style={styles.emptyText}>
+                {t('more.empty_payment_list')}
+            </Text>
+        </View>
+    ), [t]);
 
     if (loading) {
         return <Loading />;
@@ -182,87 +214,42 @@ function PaymentList(props) {
                     onChangeValue={onChangePaymentTypeValue}
                 />
                 <View style={styles.paymentStatus}>
-                    <View style={{backgroundColor: COLORS.yellowIms, padding: 10}}>
-                        <View style={{flexDirection: 'row'} as StyleSheet}>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                    <View style={styles.feeBox}>
+                        <View style={styles.feeRow}>
+                            <Text style={styles.feeLabel}>
                                 {t('more.fees_amount')} :
                             </Text>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                            <Text style={styles.feeLabel}>
                                 {tuitionFeesAmount?.montantFacture} {t('more.payment_devise')}
                             </Text>
                         </View>
 
-                        <View style={{flexDirection: 'row'} as StyleSheet}>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                        <View style={styles.feeRow}>
+                            <Text style={styles.feeLabel}>
                                 {t('more.schooling_total_payment')} :
                             </Text>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                            <Text style={styles.feeLabel}>
                                 {tuitionFeesAmount?.montantPayer} {t('more.payment_devise')}
                             </Text>
                         </View>
 
-                        <View style={{flexDirection: 'row'} as StyleSheet}>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                        <View style={styles.feeRow}>
+                            <Text style={styles.feeLabel}>
                                 {t('more.schooling_payment_balance')} :
                             </Text>
-                            <Text
-                                style={{
-                                    flex: 1,
-                                    color: COLORS.black,
-                                    fontWeight: '600',
-                                    fontSize: 15,
-                                } as StyleSheet}>
+                            <Text style={styles.feeLabel}>
                                 {tuitionFeesAmount?.montantSolde} {t('more.payment_devise')}
                             </Text>
                         </View>
                     </View>
                 </View>
-                <ScrollView style={styles.listContainer}>
-                    {(schoolingPaymentList.length === 0 || false) && (
-                        <View>
-                            <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                                {t('more.empty_payment_list')}
-                            </Text>
-                        </View>
-                    )}
-                    {schoolingPaymentList.length > 0 &&
-                        schoolingPaymentList.map((payment: any) => (
-                            <PaymentItem
-                                key={payment.id}
-                                data={payment}
-                            />
-                        ))}
-                </ScrollView>
+                <FlatList
+                    style={styles.listContainer}
+                    data={schoolingPaymentList}
+                    renderItem={renderPaymentItem}
+                    keyExtractor={keyExtractorPayment}
+                    ListEmptyComponent={ListEmptyComponent}
+                />
             </View>
         </TouchableWithoutFeedback>
     );
@@ -280,5 +267,22 @@ const styles = StyleSheet.create({
     paymentStatus: {
         padding: 15,
         paddingBottom: 10,
+    },
+    feeBox: {
+        backgroundColor: COLORS.yellowIms,
+        padding: 10,
+    },
+    feeRow: {
+        flexDirection: 'row',
+    },
+    feeLabel: {
+        flex: 1,
+        color: COLORS.black,
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    emptyText: {
+        flex: 1,
+        textAlign: 'center',
     },
 });

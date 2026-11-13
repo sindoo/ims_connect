@@ -23,43 +23,47 @@ class MiniClubService {
     });
     miniClubList = miniClubList.reverse();
     const miniClubListFiltered: any = [];
-    const registeredListChildId: any = [];
+    const selectedClasseId = selectedChild?.eleves[0]?.classe?.id;
     if (miniClubList.length > 0) {
       for (let i = 0; i < miniClubList.length; i++) {
         // MINI CLUB CLASSROOM
+        // BUG corrige : la boucle for d'origine "push"-ait miniClubList[i]
+        // a CHAQUE classeMiniClubs correspondant a la classe de l'enfant.
+        // Si plusieurs entrees classeMiniClubs pointaient vers la meme
+        // classe (doublon de configuration cote back), le meme mini-club
+        // etait ajoute plusieurs fois dans la liste affichee (doublons a
+        // l'ecran). Remplace par .some() : on ajoute le club une seule
+        // fois des qu'une correspondance est trouvee (et on arrete de
+        // parcourir des que trouve, plus rapide).
         const classConcerns: any = miniClubList[i]?.classeMiniClubs;
-        if (classConcerns.length > 0) {
-          for (let j = 0; j < classConcerns.length; j++) {
-            if (
-                classConcerns[j].classeId ===
-                selectedChild?.eleves[0]?.classe?.id
-            ) {
-              miniClubListFiltered.push(miniClubList[i]);
-            }
-          }
+        if (classConcerns?.some((classConcern: any) => classConcern.classeId === selectedClasseId)) {
+          miniClubListFiltered.push(miniClubList[i]);
         }
-
-        //MINI REGISTERED LIST
-        const registered = miniClubList[i]?.inscritMiniClubs;
-        if (registered.length > 0) {
-          for (let j = 0; j < registered.length; j++) {
-            registeredListChildId.push(registered[j]?.enfantId);
-          }
-        }
+        // L'ancienne boucle construisait aussi "registeredListChildId" a
+        // partir de miniClubList[i]?.inscritMiniClubs, mais ce tableau
+        // n'etait jamais utilise (ni retourne, ni lu ensuite) : supprime,
+        // ca evitait de reparcourir inutilement la liste des inscrits de
+        // chaque mini-club a chaque appel.
       }
     }
     return miniClubListFiltered;
   };
   static getAllRegistration = async (data:any) => {
-    let registeredList = [];
     const schoolChildrenList = await UtilitiesService.getChildren(data);
-    if (data.length > 0) {
-      for (let i = 0; i < data.length; i++) {
-        for (let j = 0; j < schoolChildrenList.length; j++) {
-          if (schoolChildrenList[j].person.id === data[i].enfantId) {
-            registeredList.push(schoolChildrenList[j]);
-          }
-        }
+    if (data.length === 0) {
+      return [];
+    }
+    // Remplace la double boucle O(n*m) (pour chaque inscription, on
+    // reparcourait TOUTE la liste des enfants) par une Map person.id -> enfant
+    // construite une seule fois, pour une recherche en O(1) par inscription.
+    const childrenById = new Map(
+        schoolChildrenList.map((child: any) => [child.person.id, child]),
+    );
+    const registeredList: any[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const child = childrenById.get(data[i].enfantId);
+      if (child !== undefined) {
+        registeredList.push(child);
       }
     }
     return registeredList;

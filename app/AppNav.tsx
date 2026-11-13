@@ -10,6 +10,8 @@ import { checkTokenExpired, updateHeaderNotificationEveryWhere } from "../servic
 import { getAuthToken, setAuthToken } from "../api/ApiManager";
 import { setUserSliceToken } from "../redux/features/user/userSlice";
 import CustomHeaderWithButton from "../components/ui/header/CustomHeaderWithButton";
+import AlertMessageModal from "../components/ui/AlertMessageModal";
+import NotificationLoadingOverlay from "../components/ui/NotificationLoadingOverlay";
 
 const AppNav = () => {
     const { i18n } = useTranslation();
@@ -35,7 +37,7 @@ const AppNav = () => {
             }
             checkTokenExpired(userToken, dispatch);
         };
-        fetchData().catch(error => console.log(error));
+        fetchData().catch(error => console.log('AppNAvScreen 1', error));
     }, [i18n, languageSelected]);
 
     useEffect(() => {
@@ -45,7 +47,7 @@ const AppNav = () => {
             }
             checkTokenExpired(userToken, dispatch);
         };
-        fetchData().catch(error => console.log(error));
+        fetchData().catch(error => console.log('AppNAvScreen 2', error));
     }, [selectedChild, user]); // ✅ Ajout de 'user' comme dépendance
 
     // ✅ Vérification des notifications en attente quand l'utilisateur est authentifié
@@ -177,8 +179,28 @@ const AppNav = () => {
                                     },
                                 }}
                             />
+
+                            <Stack.Screen
+                                name="pages/message/new-conversation"
+                                options={{
+                                    header: () => {
+                                        return (
+                                            <CustomHeaderWithButton
+                                                handleBackRoute={handleBackRoute}
+                                                title={t('contactNewMessage.title')}
+                                                backRouteName="(drawer)/(tabs)/message"
+                                            />
+                                        ) as any;
+                                    },
+                                }}
+                            />
+
                         </Stack.Protected>
                     </Stack>
+                    {/* Modale d'alerte globale, au-dessus de l'écran courant */}
+                    {userToken !== null && <AlertMessageModal />}
+                    {/* Chargement affiché après un tap sur une notification */}
+                    {userToken !== null && <NotificationLoadingOverlay />}
                 </GestureHandlerRootView>
             </SafeAreaView>
         </SafeAreaProvider>

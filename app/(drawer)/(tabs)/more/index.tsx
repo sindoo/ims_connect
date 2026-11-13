@@ -2,7 +2,7 @@ import React, {useEffect} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useDispatch, useSelector} from "react-redux";
 import AuthenticationService from "../../../../services/AuthenticationService";
-import {logoutUser} from "../../../../redux/features/userSlice";
+import {logoutUser} from "../../../../redux/features/user/userSlice";
 import {ScrollView, TouchableOpacity, View, StyleSheet, Text} from "react-native";
 import {COLORS} from "../../../../constants";
 import {MaterialCommunityIcons, MaterialIcons} from "@expo/vector-icons";
@@ -125,6 +125,7 @@ export default function More({navigation}: {navigation: any}) {
                             <Text style={styles.itemColor}>{t('more.survey')}</Text>
                         </View>
                     </TouchableOpacity>
+
                 </View>
             </ScrollView>
         </View>

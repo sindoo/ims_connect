@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import WsNotificationService from "./WSNotificationService";
 import { NOTIFICATION_NAGIVATION } from "../constants";
 import { store } from '../redux/store';
+import { updateMiniClubStatus } from '../redux/features/club/miniClubSlice';
 import { changeChild } from '../redux/features/child/childSlice';
 import {
     setAllAppointmentList,
@@ -32,11 +33,54 @@ Notifications.setNotificationHandler({
     }),
 });
 
+// ✅ État "chargement" global : vrai entre le tap sur une notification
+// (liste du téléphone) et l'affichage de la page concernée.
+let notificationNavigationLoading = false;
+let notificationLoadingHideTimer: ReturnType<typeof setTimeout> | null = null;
+const notificationLoadingListeners = new Set<() => void>();
+
+const setNotificationNavigationLoading = (value: boolean) => {
+    if (notificationNavigationLoading === value) return;
+    notificationNavigationLoading = value;
+    notificationLoadingListeners.forEach(listener => listener());
+};
+
+export const subscribeNotificationLoading = (listener: () => void) => {
+    notificationLoadingListeners.add(listener);
+    return () => {
+        notificationLoadingListeners.delete(listener);
+    };
+};
+export const getNotificationLoading = () => notificationNavigationLoading;
+
+const startNotificationLoading = () => {
+    if (notificationLoadingHideTimer) clearTimeout(notificationLoadingHideTimer);
+    setNotificationNavigationLoading(true);
+    // Filet de sécurité : ne jamais laisser l'indicateur bloqué
+    notificationLoadingHideTimer = setTimeout(() => setNotificationNavigationLoading(false), 15000);
+};
+
+const stopNotificationLoading = () => {
+    if (notificationLoadingHideTimer) clearTimeout(notificationLoadingHideTimer);
+    // Court délai : laisse la page cible se monter avant de retirer l'indicateur
+    notificationLoadingHideTimer = setTimeout(() => setNotificationNavigationLoading(false), 600);
+};
+
 // ✅ Variables de gestion
 let isNavigating = false;
 let pendingNotificationData: any = null;
 let isAppReady = false;
 let pendingNavigationCallback: (() => void) | null = null;
+
+// ✅ Instance Firebase Messaging mise en cache : évite de retraverser le
+// pont natif (getApp + getMessaging) à chaque appel
+let messagingInstance: ReturnType<typeof getMessaging> | null = null;
+const getMessagingInstance = () => {
+    if (!messagingInstance) {
+        messagingInstance = getMessaging(getApp());
+    }
+    return messagingInstance;
+};
 
 // ✅ Fonction pour rafraîchir le compteur de notifications
 const refreshNotificationCount = async () => {
@@ -55,6 +99,11 @@ const refreshAppointmentPresetList = async () => {
     const state = store.getState();
     const { selectedChild } = state.child;
     const dispatch = store.dispatch;
+
+    // ✅ Évite une exception (et le passage par le catch) quand aucun
+    // enfant n'est encore sélectionné
+    if (!selectedChild?.person?.id) return;
+
     try {
         const appointmentReq = await AppointmentService.getAllAppointment(selectedChild.person.id);
         dispatch(setAllAppointmentList(appointmentReq));
@@ -76,6 +125,32 @@ const decrementNotificationCounter = () => {
     }
 };
 
+// ✅ Affiche l'alerte (tag 'alertmessage') par-dessus l'écran courant quand
+// la notification arrive app au premier plan. Retourne true si une alerte a
+// été affichée (le bandeau système n'est alors pas nécessaire).
+const presentAlertMessage = async (data: Record<string, any> | undefined): Promise<boolean> => {
+    try {
+        const state = store.getState();
+        if (!data?.json || !state.user?.userToken) return false;
+
+        const notificationId = String(data.json);
+        const details = await WsNotificationService.getUserNotificationById(notificationId);
+        if (details?.common?.tag !== 'alertmessage') return false;
+
+        const message = typeof details.message === 'string' ? JSON.parse(details.message) : details.message;
+        store.dispatch(setDataNotification({...details, message}));
+        store.dispatch(setAlertMessageHeader(true));
+
+        if (state.user?.user?.uuid) {
+            await WsNotificationService.markNotificationAsRead(state.user.user.uuid, notificationId);
+        }
+        return true;
+    } catch (error) {
+        console.log('Erreur affichage alerte:', error);
+        return false;
+    }
+};
+
 // ✅ Marquer l'app comme prête
 export const markAppReady = (ready: boolean) => {
     console.log('📱 markAppReady:', ready);
@@ -84,7 +159,9 @@ export const markAppReady = (ready: boolean) => {
         console.log('✅ Exécution de la navigation en attente');
         const callback = pendingNavigationCallback;
         pendingNavigationCallback = null;
-        setTimeout(callback, 300);
+        // ✅ Plus de délai fixe de 300ms : le callback n'a besoin que d'être
+        // exécuté après le rendu en cours, ce que résout un microtask/frame.
+        requestAnimationFrame(callback);
     }
 };
 
@@ -138,9 +215,7 @@ export async function getFcmToken() {
     }
 
     try {
-        const app = getApp();
-        const messaging = getMessaging(app);
-        const token = await getToken(messaging);
+        const token = await getToken(getMessagingInstance());
         if (token) {
             console.log('FCM Token récupéré');
             return token;
@@ -180,7 +255,7 @@ const handleAppointmentNotification = async (
     routePath: string
 ) => {
     const state = store.getState();
-    const { children, selectedChild } = state.child;
+    const { children } = state.child;
     const dispatch = store.dispatch;
 
     if (newNotificationData?.message?.meetingType === 'NORMAL') {
@@ -203,18 +278,14 @@ const handleAppointmentNotification = async (
             pathname = '/pages/appointment';
         }
 
-        // ✅ Rafraîchir le compteur
-        await refreshNotificationCount();
-
-        // Navigation vers la liste des rendez-vous
-        setTimeout(() => {
-            router.push({
-                pathname: pathname,
-                params: {
-                    data: JSON.stringify(appointmentDetails?.id)
-                }
-            });
-        }, 400);
+        // ✅ Navigation immédiate : dispatch() est synchrone, il n'y a pas
+        // besoin d'attendre 400ms avant de naviguer.
+        router.push({
+            pathname: pathname,
+            params: {
+                data: JSON.stringify(appointmentDetails?.id)
+            }
+        });
     }
     else if (newNotificationData?.message?.meetingType === 'PRESET') {
         // Trouver l'enfant correspondant à la classe
@@ -244,18 +315,13 @@ const handleAppointmentNotification = async (
             pathname = '/pages/appointment/preset-appointment-details';
         }
 
-        // ✅ Rafraîchir le compteur
-        await refreshNotificationCount();
-
-        // Navigation vers la liste des rendez-vous présélectionnés
-        setTimeout(() => {
-            router.push({
-                pathname: pathname,
-                params: {
-                    data: JSON.stringify(appointmentDetails?.id)
-                }
-            });
-        }, 400);
+        // ✅ Navigation immédiate (voir remarque ci-dessus)
+        router.push({
+            pathname: pathname,
+            params: {
+                data: JSON.stringify(appointmentDetails?.id)
+            }
+        });
     }
 };
 
@@ -292,7 +358,8 @@ const handleOtherNotification = async (
         case 'sondage':
             if (message?.enfantId) {
                 handleChangeChild(message.enfantId);
-            } else if (message?.classes) {
+            }
+            else if (message?.classes) {
                 const classrooms = message.classes.split(',');
                 const classroomsIds = classrooms.map((classroom: string) => parseInt(classroom));
 
@@ -313,8 +380,8 @@ const handleOtherNotification = async (
             break;
 
         case 'message_center':
-            if (message?.enfantId) {
-                handleChangeChild(message.enfantId);
+            if (message?.space?.enfantId) {
+                handleChangeChild(message?.space?.enfantId);
             }
             break;
 
@@ -329,31 +396,37 @@ const handleOtherNotification = async (
             return;
     }
 
-    // ✅ Rafraîchir le compteur
-    await refreshNotificationCount();
-
-    // Navigation vers la route correspondante
-    setTimeout(() => {
-        if(tag === 'miniclubs') {
-            const data = {
-                ...notificationData,
-                message: JSON.parse(notificationData?.message)
-            }
-
-            if(data?.message?.classeMiniClubs[0]?.miniClubId !== undefined && data?.message?.classeMiniClubs[0]?.miniClubId !== null) {
-                router.push({
-                    pathname: '/pages/more/club',
-                    params: {
-                        miniClubId: data?.message?.classeMiniClubs[0]?.miniClubId,
-                        registrationStatus: 0
-                    }
-                });
-            }
+    // ✅ Navigation immédiate vers la route correspondante (plus de délai
+    // artificiel de 400ms)
+    if (tag === 'miniclubs') {
+        const miniClubId = message?.classeMiniClubs?.[0]?.miniClubId;
+        if (miniClubId !== undefined && miniClubId !== null) {
+            router.push({
+                pathname: '/pages/more/club',
+                params: {
+                    miniClubId,
+                    registrationStatus: 0
+                }
+            });
         }
-        else {
-            router.push(routePath);
+    }
+    else if(tag === 'message_center') {
+        if(message?.space) {
+            const childSelectedID = message?.space?.enfantId;
+            handleChangeChild(childSelectedID);
+
+            const pathname = '/pages/message';
+            router.push({
+                pathname: pathname,
+                params: {
+                    discussionThreadId: JSON.stringify(message?.space?.id),
+                }
+            });
         }
-    }, 400);
+    }
+    else {
+        router.push(routePath);
+    }
 };
 
 // ✅ Navigation sécurisée depuis une notification
@@ -376,6 +449,7 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
 
     try {
         isNavigating = true;
+        startNotificationLoading();
 
         const rawJsonData = data?.json;
         if (!rawJsonData) {
@@ -393,14 +467,17 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
             return;
         }
 
-        // ✅ Décrémenter le compteur avant la navigation
+        // ✅ Décrémenter le compteur localement, sans appel réseau,
+        // pour une mise à jour instantanée de l'affichage
         decrementNotificationCounter();
 
-        // ✅ Marquer la notification comme lue
+        // ✅ Marquer la notification comme lue (n'attend pas le résultat
+        // pour ne pas retarder la navigation ; les erreurs sont journalisées)
         const state = store.getState();
-        if (state.user?.user?.uuid) {
-            await WsNotificationService.markNotificationAsRead(state.user.user.uuid, notificationId);
-        }
+        const markAsReadPromise = state.user?.user?.uuid
+            ? WsNotificationService.markNotificationAsRead(state.user.user.uuid, notificationId)
+                .catch(error => console.log('Erreur marquage comme lu:', error))
+            : Promise.resolve();
 
         const routeConfig = NOTIFICATION_NAGIVATION.find(
             (item: any) => item.tag === notificationDetails?.common?.tag
@@ -427,17 +504,22 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
             );
         }
         else {
+            // ✅ On transmet les données parsées (newNotificationData) au lieu
+            // de notificationDetails deux fois : le switch de
+            // handleOtherNotification lit `newNotificationData.message`, qui
+            // devait être un objet et non la chaîne JSON brute.
             await handleOtherNotification(
                 notificationDetails,
-                notificationDetails,
+                newNotificationData,
                 routePath
             );
         }
 
-        // ✅ Rafraîchir le compteur après navigation
-        if (state.user?.user?.uuid) {
-            await updateHeaderNotificationEveryWhere(state.user.user.uuid, store.dispatch);
-        }
+        // ✅ Un seul rafraîchissement du compteur, à la fin, une fois la
+        // navigation lancée (au lieu d'un appel dans chaque handler +
+        // un second ici juste après)
+        refreshNotificationCount();
+        await markAsReadPromise;
 
         console.log('✅ Navigation réussie vers:', routePath);
     }
@@ -447,6 +529,7 @@ export async function navigateFromNotificationData(data: Record<string, any> | u
     }
     finally {
         isNavigating = false;
+        stopNotificationLoading();
     }
 }
 
@@ -459,6 +542,11 @@ export async function handleInitialNotification() {
         if (lastResponse) {
             console.log('📨 Notification initiale détectée (expo-notifications)');
             const data = lastResponse.notification.request.content.data;
+
+            // ✅ La dernière réponse reste en mémoire côté natif (même après un
+            // rechargement JS) : on l'efface pour ne pas rouvrir la même page
+            // à chaque relance de l'app.
+            Notifications.clearLastNotificationResponse();
 
             if (isAppReady) {
                 await navigateFromNotificationData(data as Record<string, any>);
@@ -475,11 +563,28 @@ export async function handleInitialNotification() {
 export function setupNotificationListeners() {
     console.log('📱 Configuration des listeners');
 
+    // ✅ Badge de l'icône de l'app = nombre de notifications non lues.
+    // Se met à jour à chaque changement du compteur (réception, lecture,
+    // suppression, déconnexion = 0), au lieu de rester figé sur la valeur
+    // envoyée par le serveur dans la dernière push.
+    let lastBadge = -1;
+    const syncBadge = () => {
+        const count = Number(store.getState().notification?.notificationNumber) || 0;
+        if (count === lastBadge) return;
+        lastBadge = count;
+        Notifications.setBadgeCountAsync(count).catch(error =>
+            console.log('Erreur mise à jour du badge:', error),
+        );
+    };
+    syncBadge();
+    const unsubscribeBadge = store.subscribe(syncBadge);
+
     // Écouter les réponses aux notifications (expo-notifications)
     const subscription = Notifications.addNotificationResponseReceivedListener(
         async (response) => {
             console.log('👆 Notification tapée (expo-notifications)');
             const data = response.notification.request.content.data;
+            Notifications.clearLastNotificationResponse();
             await navigateFromNotificationData(data as Record<string, any>);
         }
     );
@@ -495,46 +600,54 @@ export function setupNotificationListeners() {
         }
     );
 
-    // Firebase Messaging
+    // ✅ Firebase Messaging initialisé immédiatement (au lieu d'un
+    // setTimeout(1000) arbitraire) : à cet instant, setupNotificationListeners
+    // n'est appelée qu'une fois l'app marquée prête et les permissions
+    // accordées, donc plus besoin d'attendre à l'aveugle. Ce délai pouvait
+    // aussi faire manquer des messages FCM reçus dans la fenêtre d'attente.
     let firebaseCleanup = () => {};
 
-    setTimeout(() => {
-        if (isAppReady) {
-            try {
-                console.log('🔥 Initialisation de Firebase Messaging...');
-                const app = getApp();
-                const messaging = getMessaging(app);
+    try {
+        console.log('🔥 Initialisation de Firebase Messaging...');
+        const messaging = getMessagingInstance();
 
-                const unsubscribeFcm = onMessage(messaging, async (remoteMessage) => {
-                    console.log('📬 FCM message reçu');
+        const unsubscribeFcm = onMessage(messaging, async (remoteMessage) => {
+            console.log('📬 FCM message reçu');
 
-                    // ✅ Mettre à jour le compteur
-                    await refreshNotificationCount();
+            // ✅ Alerte : affichée directement par-dessus l'écran courant
+            const alertShown = await presentAlertMessage(remoteMessage.data as Record<string, any>);
 
-                    await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: remoteMessage.notification?.title || 'Notification',
-                            body: remoteMessage.notification?.body || '',
-                            data: remoteMessage.data || {},
-                            sound: true,
-                            ...(Platform.OS === 'android' && { channelId: 'default' }),
-                        },
-                        trigger: null,
-                    });
-                });
+            // ✅ Mettre à jour le compteur
+            await refreshNotificationCount();
 
-                firebaseCleanup = unsubscribeFcm;
-                console.log('✅ Firebase Messaging initialisé');
-            } catch (error) {
-                console.log('ℹ️ Firebase Messaging non disponible:', error);
-            }
-        }
-    }, 1000);
+            // ✅ Signale aux écrans mini club (liste + détail) de se recharger
+            store.dispatch(updateMiniClubStatus(Date.now()));
+
+            if (alertShown) return;
+
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: remoteMessage.notification?.title || 'Notification',
+                    body: remoteMessage.notification?.body || '',
+                    data: remoteMessage.data || {},
+                    sound: true,
+                    ...(Platform.OS === 'android' && { channelId: 'default' }),
+                },
+                trigger: null,
+            });
+        });
+
+        firebaseCleanup = unsubscribeFcm;
+        console.log('✅ Firebase Messaging initialisé');
+    } catch (error) {
+        console.log('ℹ️ Firebase Messaging non disponible:', error);
+    }
 
     return {
         unsubscribe: () => {
             subscription.remove();
             foregroundSubscription.remove();
+            unsubscribeBadge();
             firebaseCleanup();
         }
     };

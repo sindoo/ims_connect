@@ -26,6 +26,7 @@ import AppointmentService from "../../../services/AppointmentService";
 import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
 import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
 import {request} from "../../../api/ApiManager";
+import {captureFeatureError} from "../../../services/sentryService";
 import {globalStyles} from "../../../style/Global";
 import FlatButton from "../../ui/FlatButton";
 import DatesReservedModal from "./DatesReservedModal";
@@ -230,6 +231,25 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       return;
     }
 
+    const childId = selectedChild?.person?.id;
+    const classeId = selectedChild?.eleves?.length > 0 ? selectedChild?.eleves[0]?.classe?.id : null;
+
+    // Sans classe, le backend ne peut pas créer le rendez-vous (URL en /null).
+    if (childId == null || parentId == null || classeId == null) {
+      const missingMessage = classeId == null
+          ? t('allAppointment.no_class_for_child')
+          : t('snackBar.sb_error');
+      setButtonStatus(false);
+      showSnackbar(missingMessage);
+      captureFeatureError('appointment.create.missing_ids', null, {
+        childId: childId ?? null,
+        parentId: parentId ?? null,
+        classeId: classeId ?? null,
+        elevesCount: selectedChild?.eleves?.length ?? 0,
+      });
+      return;
+    }
+
     const dataToSend = {
       meetingType: 'NORMAL',
       dateDebut: getTime(dateDebut),
@@ -251,9 +271,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       const response = await request(
           'POST',
           '',
-          `/extra/rdv/mobile/normal/${selectedChild?.person.id}/${parentId}/${
-              selectedChild?.eleves?.length > 0 ? selectedChild?.eleves[0]?.classe?.id : null
-          }`,
+          `/extra/rdv/mobile/normal/${childId}/${parentId}/${classeId}`,
           dataToSend
       );
 
@@ -277,8 +295,20 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         setErrorMsgToday(t('allAppointment.rdv_date_not_free'));
         showSnackbar(t('allAppointment.rdv_date_not_free'));
       } else {
-        const errorMessage = error.response?.data?.message || t('snackBar.sb_error');
+        const serverData = error.response?.data;
+        const status = error.response?.status;
+        const errorMessage = serverData?.message
+            || (serverData?.codeMessage ? `${t('snackBar.sb_error')} (${serverData.codeMessage})` : null)
+            || (status ? `${t('snackBar.sb_error')} (${status})` : t('login.network_error'));
         showSnackbar(errorMessage);
+        captureFeatureError('appointment.create.failed', error, {
+          childId,
+          parentId,
+          classeId,
+          dateDebut: getTime(dateDebut),
+          dateFin: getTime(dateFin),
+          deviceTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
       }
       console.log('Error creating appointment:', error);
     } finally {

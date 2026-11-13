@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react';
 import {
-    Linking,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -19,6 +18,8 @@ import {BASEURL_IMG} from '../../../api/appUrl';
 import {enUS, fr} from 'date-fns/locale';
 import {useTranslation} from 'react-i18next';
 import {Image} from "expo-image";
+import Loading from "../../ui/Loading";
+import FileDownloadService, {MessageFileType} from "../../../services/FileDownloadService";
 
 const EmployeeMessageItem = (props) => {
     const {message} = props;
@@ -30,6 +31,10 @@ const EmployeeMessageItem = (props) => {
     )}:${String(getMinutes(messageDate)).padStart(2, '0')}`;
     const [displayDate, setDisplayDate] = useState('');
     const locale = i18n.language === 'en' ? enUS : fr;
+    // Un seul état suffit : un message donné n'a jamais qu'une seule pièce
+    // jointe (image OU document, jamais les deux à la fois), donc les deux
+    // blocs ci-dessous ne peuvent pas être en téléchargement en même temps.
+    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         const theDay = format(messageDate, 'P', {locale: locale});
@@ -44,6 +49,21 @@ const EmployeeMessageItem = (props) => {
             setDisplayDate(t('message.yesterday'));
         }
     }, []);
+
+    // Remplace l'ancien Linking.openURL (qui se contentait d'ouvrir le
+    // fichier dans le navigateur) par un vrai téléchargement + enregistrement
+    // sur l'appareil — voir FileDownloadService pour le détail par type de
+    // fichier (image -> galerie, document -> feuille de partage native).
+    const handleDownload = async (fileType: MessageFileType, suggestedName?: string) => {
+        if (!message?.fichier || downloading) return;
+        setDownloading(true);
+        await FileDownloadService.downloadMessageFile(
+            `${BASEURL_IMG}/${message.fichier}`,
+            fileType,
+            suggestedName,
+        );
+        setDownloading(false);
+    };
 
     return (
         <TouchableOpacity
@@ -79,13 +99,15 @@ const EmployeeMessageItem = (props) => {
                                     resizeMode="cover"
                                     style={styles.imageInMessage}
                                 />
-                                <Text
-                                    style={{color: COLORS.secondary}}
-                                    onPress={() =>
-                                        Linking.openURL(`${BASEURL_IMG}/${message?.fichier}`)
-                                    }>
-                                    {message?.nomFichier}
-                                </Text>
+                                {downloading ? (
+                                    <Loading size="small" />
+                                ) : (
+                                    <Text
+                                        style={{color: COLORS.secondary}}
+                                        onPress={() => handleDownload('image', message?.nomFichier)}>
+                                        {message?.nomFichier}
+                                    </Text>
+                                )}
                             </>
                         )}
 
@@ -94,13 +116,15 @@ const EmployeeMessageItem = (props) => {
                         message?.typeFichier === 'document' &&
                         message?.fichier !== '' &&
                         message?.fichier !== null && (
-                            <Text
-                                style={{color: COLORS.secondary}}
-                                onPress={() =>
-                                    Linking.openURL(`${BASEURL_IMG}/${message?.fichier}`)
-                                }>
-                                {message?.fichier}
-                            </Text>
+                            downloading ? (
+                                <Loading size="small" />
+                            ) : (
+                                <Text
+                                    style={{color: COLORS.secondary}}
+                                    onPress={() => handleDownload('document', message?.fichier)}>
+                                    {message?.fichier}
+                                </Text>
+                            )
                         )}
                 </View>
 

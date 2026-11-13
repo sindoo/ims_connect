@@ -1,6 +1,6 @@
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {FlatList, StyleSheet, Text, View} from 'react-native';
 import {TPaymentItemProps} from "../../../../../lib/type/TPaymentProps";
-import {JSX, useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useSelector} from "react-redux";
 import PaymentService from "../../../../../services/PaymentService";
@@ -18,26 +18,34 @@ function Proforma({navigation}: TPaymentItemProps) {
     const [loading, setLoading] = useState(true);
     const {selectedChild} = useSelector((state: any) => state.child);
 
-    const onTuitionYearValueChange = async (tuitionYearId: number) => {
+    // Logique commune (mount initial + changement d'annee) extraite dans un
+    // seul helper pour eviter de dupliquer les mêmes 4 lignes deux fois.
+    const fetchProformaForYear = useCallback(async (tuitionYearId: number) => {
+        if(selectedChild !== null) {
+            const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
+            if(groupIdReq !== undefined) {
+                const groupId = groupIdReq.groupesectionId;
+                const proformaData = await PaymentService.getAllChildProforma(selectedChild.person.id, groupId, tuitionYearId);
+                setProformaList(proformaData);
+            }
+        }
+    }, [selectedChild]);
+
+    const onTuitionYearValueChange = useCallback(async (tuitionYearId: number) => {
         try {
             setLoading(true);
-            console.log(tuitionYearId)
-            if(selectedChild !== null) {
-                const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
-                if(groupIdReq !== undefined) {
-                    const groupId = groupIdReq.groupesectionId;
-                    const proformaData = await PaymentService.getAllChildProforma(selectedChild.person.id, groupId, tuitionYearId);
-                    setProformaList(proformaData);
-                }
-            }
+            await fetchProformaForYear(tuitionYearId);
             setLoading(false);
         } catch (error) {
             setProformaList([]);
             setLoading(false);
             console.log(error);
         }
-    };
+    }, [fetchProformaForYear]);
 
+    // NOTE : meme remarque que dans deadline.tsx - le tableau de dependances
+    // [] est conserve tel quel (comportement d'origine inchange). A verifier
+    // avec all-payment.tsx qui, lui, refait l'appel via [selectedChild].
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -48,13 +56,7 @@ function Proforma({navigation}: TPaymentItemProps) {
                     if(currentYear !== null) {
                         setTuitionYearData(tuitionYears);
                         setTuitionYearValue(currentYear.id);
-
-                        const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, currentYear.id);
-                        if(groupIdReq !== undefined) {
-                            const groupId = groupIdReq.groupesectionId;
-                            const proformaData = await PaymentService.getAllChildProforma(selectedChild.person.id, groupId, currentYear.id);
-                            setProformaList(proformaData);
-                        }
+                        await fetchProformaForYear(currentYear.id);
                     }
                 }
                 setLoading(false);
@@ -68,6 +70,18 @@ function Proforma({navigation}: TPaymentItemProps) {
             console.log(error);
         })
     }, []);
+
+    const renderProformaItem = useCallback(({item}: {item: any}) => (
+        <ProformaItem data={item} />
+    ), []);
+    const keyExtractorProforma = useCallback((item: any) => String(item.id), []);
+    const ListEmptyComponent = useCallback(() => (
+        <View>
+            <Text style={styles.emptyText}>
+                {t('more.empty_proforma_list')}
+            </Text>
+        </View>
+    ), [t]);
 
     if(loading){
         return <Loading />;
@@ -84,23 +98,13 @@ function Proforma({navigation}: TPaymentItemProps) {
                 onChangeValue={onTuitionYearValueChange}
             />
 
-            <ScrollView style={styles.listContainer}>
-                {(proformaList.length === 0 || false) && (
-                    <View>
-                        <Text style={{flex: 1, textAlign: 'center'} as StyleSheet}>
-                            {t('more.empty_proforma_list')}
-                        </Text>
-                    </View>
-                ) as JSX.Element}
-
-                {proformaList.length > 0 &&
-                    proformaList.map((proforma: any) => (
-                        <ProformaItem
-                            key={proforma.id}
-                            data={proforma}
-                        />
-                    ))}
-            </ScrollView>
+            <FlatList
+                style={styles.listContainer}
+                data={proformaList}
+                renderItem={renderProformaItem}
+                keyExtractor={keyExtractorProforma}
+                ListEmptyComponent={ListEmptyComponent}
+            />
         </View>
     );
 }
@@ -111,5 +115,9 @@ const styles = StyleSheet.create({
     listContainer: {
         flex: 1,
         paddingTop: 20,
+    },
+    emptyText: {
+        flex: 1,
+        textAlign: 'center',
     },
 });

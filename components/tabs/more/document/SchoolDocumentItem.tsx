@@ -1,16 +1,39 @@
-import React from 'react';
-import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useState} from 'react';
+import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useTranslation} from "react-i18next";
 import {format} from "date-fns";
 import {enUS, fr} from "date-fns/locale";
 import {BASEURL_IMG} from "../../../../api/appUrl";
 import {COLORS} from "../../../../constants";
 import {MaterialIcons} from "@expo/vector-icons";
+import Loading from "../../../ui/Loading";
+import {downloadDocumentToDevice} from "../../../../services/FileDownloadService";
 
 
 function SchoolDocumentItem(props: any) {
   const {document} = props;
-  const {i18n} = useTranslation();
+  const {t, i18n} = useTranslation();
+  const [downloading, setDownloading] = useState(false);
+
+  // Télécharge le document et l'enregistre sur le téléphone (loader pendant l'opération)
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const result = await downloadDocumentToDevice(
+        `${BASEURL_IMG}/${document.uri}`,
+        `${document.nom}.${document.filetype}`,
+      );
+      if (result === 'saved') {
+        Alert.alert(t('schoolDocument.save_title'), t('schoolDocument.save_message'));
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert(t('imageChild.download_msg_error_title'), t('schoolDocument.download_error_message'));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <View style={styles.documentItem}>
@@ -29,11 +52,15 @@ function SchoolDocumentItem(props: any) {
         </Pressable>
       </View>
       <View style={styles.downloadButton}>
-        <Pressable
-          onPress={() => Linking.openURL(`${BASEURL_IMG}/${document.uri}`)}
-          style={{right: 10}}>
-          <MaterialIcons name="download" color={COLORS.secondary} size={28} />
-        </Pressable>
+        {downloading ? (
+          <View style={{right: 10}}>
+            <Loading size="small" />
+          </View>
+        ) : (
+          <Pressable onPress={handleDownload} style={{right: 10}}>
+            <MaterialIcons name="download" color={COLORS.secondary} size={28} />
+          </Pressable>
+        )}
       </View>
     </View>
   );

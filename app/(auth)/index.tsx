@@ -3,11 +3,10 @@ import { globalStyles } from "../../style/Global";
 import LoginForm from "../../components/form/LoginForm";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { loginUser } from "../../redux/features/userSlice";
 import { useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { postRequest, putRequest, setAuthToken } from "../../api/ApiManager";
-import { setUserFCMToken, setUserSliceToken } from "../../redux/features/user/userSlice";
+import { setUserFCMToken, setUserSliceToken, loginUser } from "../../redux/features/user/userSlice";
 import { getUserChildren } from "../../redux/features/child/childSlice";
 import { getFcmToken } from "../../services/notificationService";
 import { updateHeaderNotificationEveryWhere } from "../../services/GeneralService";
@@ -23,6 +22,7 @@ const Login = () => {
     const handleUserLogin = async (data) => {
         try {
             setButtonStatus(true);
+            setErrorMessage('');
             const response = await postRequest('', '/public/auth/login/parent', {
                 username: data.username.trim(),
                 password: data.password.trim(),
@@ -71,7 +71,7 @@ const Login = () => {
 
     return (
         <ViewThemed style={globalStyles.container}>
-            <LoginForm onSubmit={handleUserLogin} sending={buttonStatus} />
+            <LoginForm onSubmit={handleUserLogin} sending={buttonStatus} errorMessage={errorMessage} />
         </ViewThemed>
     );
 };
