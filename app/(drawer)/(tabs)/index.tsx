@@ -776,6 +776,11 @@ const HomeScreen = () => {
     // rendu de l'écran).
     const selectedChildClass = useMemo(() => selectedChild?.eleves?.[0]?.classe ?? null, [selectedChild]);
 
+    // "Ma journée à IMS" n'est affichée que si la classe de l'enfant propose
+    // l'IMS Day. Seul un "false" explicite masque la section : si l'information
+    // est absente, on garde l'affichage comme avant.
+    const showImsDaySection = selectedChildClass?.imsday !== false;
+
     const {
         loading,
         initialLoading,
@@ -818,11 +823,13 @@ const HomeScreen = () => {
                     contentFit="cover"
                     style={styles.backgroundImage}
                 >
-                    {/* Section "Ma journée IMS" */}
-                    <View style={styles.imsDay}>
-                        <Text style={globalStyles.title}>{i18n.t('home.my_day_ims')}</Text>
-                        <ImsDaySection imsDayInfo={imsDayInfo} i18n={i18n} router={router} />
-                    </View>
+                    {/* Section "Ma journée IMS" (masquée si la classe n'a pas l'IMS Day) */}
+                    {showImsDaySection && (
+                        <View style={styles.imsDay}>
+                            <Text style={globalStyles.title}>{i18n.t('home.my_day_ims')}</Text>
+                            <ImsDaySection imsDayInfo={imsDayInfo} i18n={i18n} router={router} />
+                        </View>
+                    )}
 
                     {/* Section "Menu du jour", avec navigation semaine */}
                     <View style={globalStyles.dayMenuContainer}>

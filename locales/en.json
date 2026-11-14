@@ -58,6 +58,7 @@
         "bowel_number_question": "How many a day?",
         "injurie_record": "Record injuries",
         "empty_ims_day": "No information available",
+        "not_available_for_class": "My day at IMS is not available for this child's class.",
         "starter_dish": "Starter",
         "dish": "Dish",
         "dessert": "Dessert",

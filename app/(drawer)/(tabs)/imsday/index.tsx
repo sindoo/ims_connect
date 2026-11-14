@@ -39,6 +39,9 @@ const ImsDayHome = (props) => {
     const [index, setIndex] = useState(-1);
     const [weekData, setWeekData] = useState<any>([]);
     const {selectedChild} = useSelector((state: any) => state.child);
+    // La classe de l'enfant ne propose pas l'IMS Day : contenu masqué.
+    // Seul un "false" explicite masque la page (information absente = affichée).
+    const imsDayDisabled = selectedChild?.eleves?.[0]?.classe?.imsday === false;
     const {user, userToken} = useSelector((state:any) => state.user);
     const [loading, setLoading] = useState(true);
     // ✅ Même mécanisme que home/index.tsx (HomeScreen) : distingue le tout
@@ -184,6 +187,16 @@ const ImsDayHome = (props) => {
         const fetchSeq = ++fetchSeqRef.current;
         const isStale = () => fetchSeq !== fetchSeqRef.current;
         const requestKey = imsDayIdParam ? `${imsDayIdParam}-${openedAtParam ?? ''}` : null;
+
+        // Classe sans IMS Day : rien à charger, la page affiche un message
+        if (imsDayDisabled) {
+            resetImsDayState();
+            setMenuYearLoading(false);
+            setLoading(false);
+            setHasLoadedOnce(true);
+            return;
+        }
+
         try {
             setLoading(true);
             // ✅ Remet aussi "menuYearLoading" à true à chaque rechargement
@@ -307,7 +320,7 @@ const ImsDayHome = (props) => {
             setHasLoadedOnce(true);
             checkTokenExpired(userToken, dispatch);
         }
-    }, [selectedChild, user, userToken, dispatch, resetImsDayState, imsDayIdParam, openedAtParam]);
+    }, [selectedChild, user, userToken, dispatch, resetImsDayState, imsDayIdParam, openedAtParam, imsDayDisabled]);
 
     // ✅ REMPLACE l'ancien useEffect(() => {...}, [selectedChild]), qui ne
     // se relançait qu'au montage ou quand l'enfant sélectionné changeait.
@@ -364,13 +377,19 @@ const ImsDayHome = (props) => {
                     contentFit="cover"
                     style={styles.backgroundImage}>
                     <View style={styles.myImsDayContainer}>
-                        {imsDayList.length === 0 && (
+                        {imsDayDisabled && (
+                            <Text style={styles.emptyImsDayText}>
+                                {t('myDayAtIms.not_available_for_class')}
+                            </Text>
+                        )}
+
+                        {!imsDayDisabled && imsDayList.length === 0 && (
                             <Text style={styles.emptyImsDayText}>
                                 {t('myDayAtIms.empty_ims_day')}
                             </Text>
                         )}
 
-                        {imsDayInfo !== null && (
+                        {!imsDayDisabled && imsDayInfo !== null && (
                             <ImsDayInfoItem
                                 styles={styles}
                                 index={index}

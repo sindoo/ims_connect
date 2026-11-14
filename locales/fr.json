@@ -58,6 +58,7 @@
         "bowel_number_question": "Combien de fois par jour ? ",
         "injurie_record": "Enregistrer les blessures",
         "empty_ims_day": "Aucune information disponible",
+        "not_available_for_class": "La journée à IMS n'est pas proposée pour la classe de cet enfant.",
         "starter_dish": "Entrée",
         "dish": "Plat",
         "dessert": "Dessert",
