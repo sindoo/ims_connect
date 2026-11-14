@@ -12,6 +12,7 @@ import { setUserSliceToken } from "../redux/features/user/userSlice";
 import CustomHeaderWithButton from "../components/ui/header/CustomHeaderWithButton";
 import AlertMessageModal from "../components/ui/AlertMessageModal";
 import NotificationLoadingOverlay from "../components/ui/NotificationLoadingOverlay";
+import ChildSwitchLoader from "../components/ui/ChildSwitchLoader";
 
 const AppNav = () => {
     const { i18n } = useTranslation();
@@ -201,6 +202,8 @@ const AppNav = () => {
                     {userToken !== null && <AlertMessageModal />}
                     {/* Chargement affiché après un tap sur une notification */}
                     {userToken !== null && <NotificationLoadingOverlay />}
+                    {/* Chargement affiché après un changement d'enfant, sur toutes les pages */}
+                    {userToken !== null && <ChildSwitchLoader />}
                 </GestureHandlerRootView>
             </SafeAreaView>
         </SafeAreaProvider>

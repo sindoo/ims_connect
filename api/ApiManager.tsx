@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import {captureApiError, captureMissingParam} from '../services/sentryService';
 import i18next from '../i18next/i18next';
+import {getOfflineReason, isNetworkError, reportRequestWithoutResponse, setOffline} from './connectivity';
+import {requestEnded, requestStarted} from './activity';
 
 // LOCAL CONFIG
 const AXIOS_BASEURL = 'https://ims.bagadis.com/api/v1'; // GOOD
@@ -14,16 +16,71 @@ axios.defaults.headers.post['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
 axios.defaults.headers.common['Pragma'] = 'no-cache';
 axios.defaults.headers.common['Expires'] = '0';
+// Sans délai maximal, une requête lancée pendant un changement de réseau
+// (Wi-Fi -> 4G) peut rester bloquée indéfiniment (chargement sans fin).
+// Au-delà, elle échoue comme une erreur réseau et l'écran peut l'afficher.
+const REQUEST_TIMEOUT_MS = 30000;
+const UPLOAD_TIMEOUT_MS = 120000;
+axios.defaults.timeout = REQUEST_TIMEOUT_MS;
+
+// Ce module peut être réexécuté (Fast Refresh en développement) : sans
+// précaution, les intercepteurs s'ajouteraient à chaque fois et le compteur de
+// requêtes en cours ne redescendrait plus à zéro. On retire donc ceux posés
+// lors d'une exécution précédente avant de les réenregistrer.
+const interceptorIds: {request?: number; response?: number} =
+    ((globalThis as any).__imsAxiosInterceptors ??= {});
+if (interceptorIds.request !== undefined) axios.interceptors.request.eject(interceptorIds.request);
+if (interceptorIds.response !== undefined) axios.interceptors.response.eject(interceptorIds.response);
+
+// Compte les requêtes en cours (indicateur de chargement global).
+// Une requête n'est comptée qu'une seule fois, même si l'intercepteur était présent en double.
+interceptorIds.request = axios.interceptors.request.use(config => {
+  if (!(config as any).__counted) {
+    (config as any).__counted = true;
+    requestStarted();
+  }
+  return config;
+});
+
+const endCountedRequest = (config: any) => {
+  if (config?.__counted) {
+    config.__counted = false;
+    requestEnded();
+  }
+};
 
 // Toute réponse d'erreur de l'API (4xx/5xx) est signalée à Sentry, puis
 // l'erreur est relancée telle quelle : les écrans la traitent comme avant.
-axios.interceptors.response.use(
-    response => response,
+interceptorIds.response = axios.interceptors.response.use(
+    response => {
+      endCountedRequest(response?.config);
+      setOffline(false);
+      return response;
+    },
     error => {
+      endCountedRequest(error?.config);
+      if (isNetworkError(error)) {
+        // Pas de réponse du serveur : pas d'Internet ou serveur injoignable
+        reportRequestWithoutResponse();
+      } else if (error?.response) {
+        // Le serveur a répondu (même en erreur) : la connexion fonctionne
+        setOffline(false);
+      }
       captureApiError(error);
       return Promise.reject(error);
     },
 );
+
+// Vérifie si le serveur est de nouveau joignable (utilisé par le bandeau
+// "hors connexion"). Toute réponse, même 401/404, signifie que la connexion
+// est rétablie : l'intercepteur ci-dessus met alors à jour l'état.
+export const pingServer = async () => {
+  try {
+    await axios.get(AXIOS_BASEURL, {timeout: 8000});
+  } catch {
+    // l'intercepteur a déjà mis à jour l'état de connexion
+  }
+};
 
 // ===== Garde-fou : identifiant manquant dans l'URL =====
 // Un id null/undefined dans un template (`/enfant/${id}`) produit une URL comme
@@ -80,8 +137,16 @@ const assertUrlParams = (method: string, url: unknown) => {
 
 // Message à afficher à l'utilisateur : message dédié si un identifiant manquait,
 // sinon le message d'erreur habituel de l'écran (fallback).
-export const apiErrorMessage = (error: any, fallback: string): string =>
-    error?.isMissingParam ? i18next.t('snackBar.sb_missing_data') : fallback;
+// Absence de connexion : message dédié également.
+export const apiErrorMessage = (error: any, fallback: string): string => {
+  if (error?.isMissingParam) return i18next.t('snackBar.sb_missing_data');
+  if (isNetworkError(error)) {
+    return getOfflineReason() === 'server'
+        ? i18next.t('snackBar.sb_server_unreachable')
+        : i18next.t('snackBar.sb_no_connection');
+  }
+  return fallback;
+};
 
 export const getAuthToken = async () => {
   return await AsyncStorage.getItem('authToken');
@@ -145,6 +210,7 @@ export const uploadFileRequest = async (
     url: url,
     data: data,
     baseURL: baseURL == '' ? AXIOS_BASEURL : baseURL,
+    timeout: UPLOAD_TIMEOUT_MS,
   });
 };
 

@@ -20,6 +20,7 @@ import { store } from "../redux/store";
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import UpdateBanner from "../components/ui/UpdateBanner";
+import OfflineBanner from "../components/ui/OfflineBanner";
 import { initSentry, bindSentryToStore, wrapWithSentry } from "../services/sentryService";
 
 // ✅ Suivi des erreurs en production (inactif tant que le DSN n'est pas
@@ -188,6 +189,7 @@ const RootLayout = () => {
                         disparaît complètement (0px) sinon. */}
                     <SafeAreaProvider>
                         <View style={{flex: 1}}>
+                            <OfflineBanner />
                             <UpdateBanner />
                             <View style={{flex: 1}}>
                                 <AppNav />

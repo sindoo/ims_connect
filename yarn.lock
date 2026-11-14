@@ -3306,6 +3306,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-community/netinfo@npm:11.5.2":
+  version: 11.5.2
+  resolution: "@react-native-community/netinfo@npm:11.5.2"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.59"
+  checksum: 10c0/d5301d7d8b363753b6980f5d17dc47ad4933fc46e4010aceb937c0f673b35a6648f259df930b2b48d99344a90ff7a187344486100c4874462d88545f1647bef5
+  languageName: node
+  linkType: hard
+
 "@react-native-documents/picker@npm:^12.0.2":
   version: 12.0.2
   resolution: "@react-native-documents/picker@npm:12.0.2"
@@ -6708,6 +6718,7 @@ __metadata:
     "@expo/vector-icons": "npm:^15.1.1"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/cli": "npm:latest"
+    "@react-native-community/netinfo": "npm:11.5.2"
     "@react-native-documents/picker": "npm:^12.0.2"
     "@react-native-firebase/app": "npm:^26.3.0"
     "@react-native-firebase/messaging": "npm:^26.3.0"

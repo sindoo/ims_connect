@@ -354,6 +354,8 @@
     "snackBar": {
         "sb_succes_save": "Successful registration",
         "sb_succes_cancel": "Successful unregistration",
+        "sb_server_unreachable": "The server is temporarily unreachable. Please try again in a moment.",
+        "sb_no_connection": "No Internet connection. Check your Wi-Fi or mobile data, then try again.",
         "sb_missing_data": "Some required information is missing (child, class…). Please reload the screen; if the problem persists, contact the school.",
         "sb_error": "Registration failed",
         "sb_form_invalid": "Invalid or missing fields",
@@ -371,5 +373,13 @@
     },
     "updateBanner": {
         "message": "A new version ({{version}}) is available — Update now"
+    },
+    "offlineBanner": {
+        "message": "No Internet connection",
+        "server": "Server temporarily unreachable"
+    },
+    "childSwitch": {
+        "loading_child": "Loading {{name}}'s data…",
+        "loading": "Loading data…"
     }
 }

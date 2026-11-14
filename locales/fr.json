@@ -353,6 +353,8 @@
     "snackBar": {
         "sb_succes_save": "Succès de l'enregistrement",
         "sb_succes_cancel": "Succès de l'annulation",
+        "sb_server_unreachable": "Le serveur est momentanément injoignable. Réessayez dans quelques instants.",
+        "sb_no_connection": "Pas de connexion Internet. Vérifiez votre Wi-Fi ou vos données mobiles, puis réessayez.",
         "sb_missing_data": "Certaines informations nécessaires sont manquantes (enfant, classe…). Rechargez l'écran ; si le problème persiste, contactez l'école.",
         "sb_error" : "Echec de l'enregistrement",
         "sb_form_invalid": "Champs invalides ou manquants",
@@ -370,5 +372,13 @@
     },
     "updateBanner": {
         "message": "Une nouvelle version ({{version}}) est disponible — Mettre à jour"
+    },
+    "offlineBanner": {
+        "message": "Pas de connexion Internet",
+        "server": "Serveur momentanément injoignable"
+    },
+    "childSwitch": {
+        "loading_child": "Chargement des données de {{name}}…",
+        "loading": "Chargement des données…"
     }
 }

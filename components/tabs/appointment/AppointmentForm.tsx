@@ -25,7 +25,7 @@ import {Snackbar} from 'react-native-paper';
 import AppointmentService from "../../../services/AppointmentService";
 import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
 import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
-import {request} from "../../../api/ApiManager";
+import {request, apiErrorMessage} from "../../../api/ApiManager";
 import {captureFeatureError} from "../../../services/sentryService";
 import {globalStyles} from "../../../style/Global";
 import FlatButton from "../../ui/FlatButton";
@@ -300,7 +300,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         const errorMessage = (error?.isMissingParam ? error.message : null)
             || serverData?.message
             || (serverData?.codeMessage ? `${t('snackBar.sb_error')} (${serverData.codeMessage})` : null)
-            || (status ? `${t('snackBar.sb_error')} (${status})` : t('login.network_error'));
+            || (status ? `${t('snackBar.sb_error')} (${status})` : apiErrorMessage(error, t('snackBar.sb_no_connection')));
         showSnackbar(errorMessage);
         captureFeatureError('appointment.create.failed', error, {
           childId,

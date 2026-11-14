@@ -5,7 +5,8 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
-import { postRequest, putRequest, setAuthToken } from "../../api/ApiManager";
+import { postRequest, putRequest, setAuthToken, apiErrorMessage } from "../../api/ApiManager";
+import { isNetworkError } from "../../api/connectivity";
 import { setUserFCMToken, setUserSliceToken, loginUser } from "../../redux/features/user/userSlice";
 import { getUserChildren } from "../../redux/features/child/childSlice";
 import { getFcmToken } from "../../services/notificationService";
@@ -59,8 +60,8 @@ const Login = () => {
             router.push('/');
         }
         catch (error: any) {
-            if (error?.code === 'ERR_NETWORK') {
-                setErrorMessage(t('login.network_error'));
+            if (isNetworkError(error)) {
+                setErrorMessage(apiErrorMessage(error, t('snackBar.sb_no_connection')));
             } else {
                 setErrorMessage(t('login.acces_error'));
             }
