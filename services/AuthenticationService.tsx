@@ -11,7 +11,7 @@ class AuthenticationService {
     });
   };
   static updateUserPassword = async (data: any) => {
-    return await putRequest('', '/public/auth/parent/motdepasse', {
+    return await putRequest('', '/security/update/parent/motdepasse', {
       username: data.username.trim(),
       password: data.password.trim(),
       newPassword: data.newPassword.trim(),

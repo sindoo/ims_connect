@@ -12,8 +12,10 @@ import {
 import * as yup from 'yup';
 import {Formik} from 'formik';
 import {useTranslation} from "react-i18next";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import AuthenticationService from "../../../services/AuthenticationService";
+import {apiErrorMessage} from "../../../api/ApiManager";
+import {checkTokenExpired} from "../../../services/GeneralService";
 import Loading from "../../../components/ui/Loading";
 import {globalStyles} from "../../../style/Global";
 import {MaterialCommunityIcons} from "@expo/vector-icons";
@@ -31,11 +33,11 @@ function ChangePassword({snackbarShowMessage}: {snackbarShowMessage: any}) {
     const [passwordVisibility, setPasswordVisibility] = useState(true);
     const [passwordIcon, setPasswordIcon] = useState('eye');
     const [loading, setLoading] = useState(false);
-    //const dispatch = useDispatch();
+    const dispatch = useDispatch();
     const {t} = useTranslation();
     const [errorMessage, setErrorMessage] = useState('');
     const [buttonStatus, setButtonStatus] = useState(false);
-    const {user} = useSelector((state: any) => state.user);
+    const {user, userToken} = useSelector((state: any) => state.user);
 
     const handlePasswordVisibility = () => {
         setPasswordVisibility(!passwordVisibility);
@@ -55,11 +57,33 @@ function ChangePassword({snackbarShowMessage}: {snackbarShowMessage: any}) {
             setButtonStatus(false);
             snackbarShowMessage(t('snackBar.sb_succes_save'));
         } catch (error:any) {
-            if (error?.code === 'BAD_CREDENTIALS') {
+            const status = error?.response?.status;
+            const serverData = error?.response?.data;
+            const serverCode = serverData?.codeMessage ?? serverData?.code;
+            console.log('❌ Changement mot de passe:', JSON.stringify({
+                status,
+                data: serverData,
+                code: error?.code,
+                message: error?.message,
+            }));
+
+            // L'endpoint est sécurisé (/security/…) : un 401/403 peut aussi signifier
+            // une session expirée. Dans ce cas, déconnexion comme sur les autres écrans.
+            const sessionExpired = (status === 401 || status === 403)
+                && serverCode !== 'BAD_CREDENTIALS'
+                && AuthenticationService.checkTokenValidity(userToken);
+
+            if (sessionExpired) {
+                checkTokenExpired(userToken, dispatch);
+            } else if (serverCode === 'BAD_CREDENTIALS' || status === 401 || status === 403) {
+                // Le serveur a réellement refusé l'ancien mot de passe
                 snackbarShowMessage(t('login.password_error'));
             } else {
-                snackbarShowMessage(t('login.password_error'));
-                console.log(error);
+                // Autre cause (réseau, serveur, donnée manquante) : ne pas accuser
+                // à tort le mot de passe, et afficher de quoi diagnostiquer.
+                const detail = serverCode ?? status;
+                const fallback = detail ? `${t('snackBar.sb_error')} (${detail})` : t('snackBar.sb_error');
+                snackbarShowMessage(apiErrorMessage(error, fallback));
             }
             setButtonStatus(false);
         }
