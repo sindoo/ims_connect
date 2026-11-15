@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -34,25 +34,83 @@ import FlatButton from "../../../components/ui/FlatButton";
 // Validation souple : accepte les adresses existantes en base (ex. domaine avec « _ »)
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const editProfileFormSchema = yup.object({
-    prenom: yup.string().required().min(3),
-    nom: yup.string().required().min(3),
-    adresse: yup.string().nullable(),
-    motherPrenom: yup.string().required().min(3),
-    motherNom: yup.string().required().min(3),
-    motherPhone1: yup.string().required(),
-    motherEmail: yup.string().trim().matches(EMAIL_REGEX, 'invalid email').required(),
-    fatherPrenom: yup.string().required().min(3),
-    fatherNom: yup.string().required().min(3),
-    fatherPhone1: yup.string().required(),
-    fatherEmail: yup.string().trim().matches(EMAIL_REGEX, 'invalid email').required(),
-    allergy: yup.string().nullable(),
-    foodRestriction: yup.string().nullable(),
-    healthDetail: yup.string().nullable(),
-    emergencyNom1: yup.string().nullable(),
-    emergencyPhone1: yup.string().nullable(),
-    emergencyNom2: yup.string().nullable(),
-    emergencyPhone2: yup.string().nullable(),
+// Champs d'un parent (mère / père) :
+// - parent rattaché à l'enfant : les 4 champs sont obligatoires ;
+// - parent absent : facultatifs, mais dès qu'un champ est renseigné les 4 le
+//   deviennent, car ce parent sera créé à l'enregistrement.
+const PARENT_FIELDS = ['Prenom', 'Nom', 'Phone1', 'Email'];
+const isFilled = (value: any) => String(value ?? '').trim() !== '';
+const parentFieldsStarted = (values: any, prefix: 'mother' | 'father') =>
+    PARENT_FIELDS.some(field => isFilled(values?.[`${prefix}${field}`]));
+
+const requiredName = () => yup.string().required().min(3);
+const requiredEmail = () => yup.string().trim().matches(EMAIL_REGEX, 'invalid email').required();
+const optionalText = () => yup.string().nullable();
+
+// Champ d'un parent absent : exigé (et contrôlé) seulement si la saisie de ce parent a commencé
+const newParentField = (prefix: 'mother' | 'father', kind: 'name' | 'phone' | 'email') =>
+    yup.string().nullable().test('new-parent-field', 'invalid', function (value) {
+        if (!parentFieldsStarted(this.parent, prefix)) return true;
+        const text = String(value ?? '').trim();
+        if (text === '') return false;
+        if (kind === 'name') return text.length >= 3;
+        if (kind === 'email') return EMAIL_REGEX.test(text);
+        return true;
+    });
+
+// Nouveau parent à créer (aucun identifiant : le backend le crée et le rattache)
+const buildNewParent = (
+    enfantId: any,
+    sexe: 'FEMME' | 'HOMME',
+    info: {nom?: string; prenom?: string; email?: string; phone1?: string},
+) => ({
+    id: null,
+    enfantId,
+    parent: {
+        id: null,
+        person: {
+            id: null,
+            nom: (info.nom ?? '').trim(),
+            prenom: (info.prenom ?? '').trim(),
+            sexe,
+            email: (info.email ?? '').trim(),
+            phone1: (info.phone1 ?? '').trim(),
+            phone2: null,
+            dateNaissance: null,
+            adresse: '',
+            photo: '',
+            paysPersons: [],
+        },
+        enfantsIds: [],
+        fonctions: [],
+        enfants: [],
+        enfantParents: [],
+        common: CONSTANT.common,
+    },
+    siblingUuid: '',
+    principal: true,
+    common: CONSTANT.common,
+});
+
+const buildEditProfileFormSchema = (hasMother: boolean, hasFather: boolean) => yup.object({
+    prenom: requiredName(),
+    nom: requiredName(),
+    adresse: optionalText(),
+    motherPrenom: hasMother ? requiredName() : newParentField('mother', 'name'),
+    motherNom: hasMother ? requiredName() : newParentField('mother', 'name'),
+    motherPhone1: hasMother ? yup.string().required() : newParentField('mother', 'phone'),
+    motherEmail: hasMother ? requiredEmail() : newParentField('mother', 'email'),
+    fatherPrenom: hasFather ? requiredName() : newParentField('father', 'name'),
+    fatherNom: hasFather ? requiredName() : newParentField('father', 'name'),
+    fatherPhone1: hasFather ? yup.string().required() : newParentField('father', 'phone'),
+    fatherEmail: hasFather ? requiredEmail() : newParentField('father', 'email'),
+    allergy: optionalText(),
+    foodRestriction: optionalText(),
+    healthDetail: optionalText(),
+    emergencyNom1: optionalText(),
+    emergencyPhone1: optionalText(),
+    emergencyNom2: optionalText(),
+    emergencyPhone2: optionalText(),
 });
 
 const nationalityData = [
@@ -75,6 +133,20 @@ function Profile(props: any) {
     const [openDayOfBirth, setOpenDayOfBirth] = useState(false);
     const language = i18n.language.toUpperCase();
     const {selectedChild} = useSelector((state: any) => state.child);
+    // Parents réellement rattachés à l'enfant (même règle que le remplissage
+    // et l'enregistrement du formulaire : mère = FEMME, père = HOMME)
+    const hasMother = useMemo(
+        () => (selectedChild?.enfantParents ?? []).some((ep: any) => ep?.parent?.person?.sexe === 'FEMME'),
+        [selectedChild],
+    );
+    const hasFather = useMemo(
+        () => (selectedChild?.enfantParents ?? []).some((ep: any) => ep?.parent?.person?.sexe === 'HOMME'),
+        [selectedChild],
+    );
+    const editProfileFormSchema = useMemo(
+        () => buildEditProfileFormSchema(hasMother, hasFather),
+        [hasMother, hasFather],
+    );
 
     const [openClassroom, setOpenClassroom] = useState(false);
     const [classValue, setClassValue] = useState<any>(null);
@@ -556,16 +628,44 @@ function Profile(props: any) {
                                             }
                                         }
                                     }
-                                    enfantParents = [
-                                        enfantParentsMother,
-                                        enfantParentsFather
-                                    ];
+                                    // On renvoie tous les parents d'origine, en remplaçant
+                                    // seulement la mère et le père modifiés. Jamais de "null"
+                                    // dans la liste (enfant avec un seul parent, sexe non
+                                    // renseigné…) : le backend répond 500 dans ce cas.
+                                    const motherId = (enfantParentsMother as any)?.id;
+                                    const fatherId = (enfantParentsFather as any)?.id;
+                                    enfantParents = selectedChildMod.enfantParents.map((enfantParent: any) => {
+                                        if (enfantParentsMother && enfantParent?.id === motherId) return enfantParentsMother;
+                                        if (enfantParentsFather && enfantParent?.id === fatherId) return enfantParentsFather;
+                                        return enfantParent;
+                                    });
                                 }
+                                // Parent non encore rattaché mais renseigné dans le formulaire :
+                                // on l'ajoute comme nouveau parent (id null = création, même
+                                // convention que les nationalités et droits à l'image ci-dessous).
+                                const newParents: any[] = [];
+                                if (!hasMother && parentFieldsStarted(data, 'mother')) {
+                                    newParents.push(buildNewParent(selectedChild?.person?.id, 'FEMME', {
+                                        nom: data?.motherNom,
+                                        prenom: data?.motherPrenom,
+                                        email: data?.motherEmail,
+                                        phone1: data?.motherPhone1,
+                                    }));
+                                }
+                                if (!hasFather && parentFieldsStarted(data, 'father')) {
+                                    newParents.push(buildNewParent(selectedChild?.person?.id, 'HOMME', {
+                                        nom: data?.fatherNom,
+                                        prenom: data?.fatherPrenom,
+                                        email: data?.fatherEmail,
+                                        phone1: data?.fatherPhone1,
+                                    }));
+                                }
+
                                 //INFORMATIONS PARENT
-                                if (selectedChild?.enfantParents.length > 0) {
+                                if (selectedChild?.enfantParents.length > 0 || newParents.length > 0) {
                                     selectedChildMod = {
                                         ...selectedChildMod,
-                                        enfantParents: enfantParents,
+                                        enfantParents: [...(enfantParents ?? []), ...newParents],
                                     };
                                 }
 
@@ -922,7 +1022,7 @@ function Profile(props: any) {
                                         <View style={styles.leftInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.first_name')}
-                                                <Text style={styles.requiredMark}> *</Text>
+                                                {hasMother && <Text style={styles.requiredMark}> *</Text>}
                                             </Text>
                                             <TextInput
                                                 style={[styles.inputText, fieldError(formikProps, 'motherPrenom') && styles.inputTextError]}
@@ -939,7 +1039,7 @@ function Profile(props: any) {
                                         <View style={styles.rightInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.last_name')}
-                                                <Text style={styles.requiredMark}> *</Text>
+                                                {hasMother && <Text style={styles.requiredMark}> *</Text>}
                                             </Text>
                                             <TextInput
                                                 style={[styles.inputText, fieldError(formikProps, 'motherNom') && styles.inputTextError]}
@@ -962,7 +1062,7 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.phone_number')}
-                                            <Text style={styles.requiredMark}> *</Text>
+                                            {hasMother && <Text style={styles.requiredMark}> *</Text>}
                                         </Text>
                                         <TextInput
                                             style={[styles.inputText, fieldError(formikProps, 'motherPhone1') && styles.inputTextError]}
@@ -984,7 +1084,7 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.email')}
-                                            <Text style={styles.requiredMark}> *</Text>
+                                            {hasMother && <Text style={styles.requiredMark}> *</Text>}
                                         </Text>
                                         <TextInput
                                             style={[styles.inputText, fieldError(formikProps, 'motherEmail') && styles.inputTextError]}
@@ -1009,7 +1109,7 @@ function Profile(props: any) {
                                         <View style={styles.leftInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.first_name')}
-                                                <Text style={styles.requiredMark}> *</Text>
+                                                {hasFather && <Text style={styles.requiredMark}> *</Text>}
                                             </Text>
                                             <TextInput
                                                 style={[styles.inputText, fieldError(formikProps, 'fatherPrenom') && styles.inputTextError]}
@@ -1026,7 +1126,7 @@ function Profile(props: any) {
                                         <View style={styles.rightInputLabelContainer}>
                                             <Text style={styles.inputlabel}>
                                                 {t('child_profile.last_name')}
-                                                <Text style={styles.requiredMark}> *</Text>
+                                                {hasFather && <Text style={styles.requiredMark}> *</Text>}
                                             </Text>
                                             <TextInput
                                                 style={[styles.inputText, fieldError(formikProps, 'fatherNom') && styles.inputTextError]}
@@ -1049,7 +1149,7 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.phone_number')}
-                                            <Text style={styles.requiredMark}> *</Text>
+                                            {hasFather && <Text style={styles.requiredMark}> *</Text>}
                                         </Text>
                                         <TextInput
                                             style={[styles.inputText, fieldError(formikProps, 'fatherPhone1') && styles.inputTextError]}
@@ -1071,7 +1171,7 @@ function Profile(props: any) {
                                         }}>
                                         <Text style={styles.inputlabel}>
                                             {t('child_profile.email')}
-                                            <Text style={styles.requiredMark}> *</Text>
+                                            {hasFather && <Text style={styles.requiredMark}> *</Text>}
                                         </Text>
                                         <TextInput
                                             style={[styles.inputText, fieldError(formikProps, 'fatherEmail') && styles.inputTextError]}
