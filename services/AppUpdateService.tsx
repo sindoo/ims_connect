@@ -20,15 +20,14 @@ const ANDROID_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDRO
 // côté Google, d'équivalent public à l'iTunes Lookup API d'Apple.
 const REMOTE_CONFIG_ANDROID_VERSION_KEY = 'android_latest_version';
 
-// Par défaut, le SDK Remote Config met en cache la valeur récupérée
-// pendant 12h (minimumFetchIntervalMillis) avant d'aller en rechercher une
-// nouvelle — un fetchAndActivate() pendant cette fenêtre renvoie la valeur
-// déjà en cache, même si tu viens de changer la valeur côté console
-// Firebase. En développement (__DEV__), on force cet intervalle à 0 pour
-// que chaque test aille bien chercher la valeur fraîche ; en production, on
-// garde le comportement par défaut (12h) pour ne pas multiplier les appels
-// réseau/facturables inutilement.
-const ANDROID_MIN_FETCH_INTERVAL_MS = __DEV__ ? 0 : 43200000;
+// Le SDK Remote Config garde en cache la valeur récupérée pendant
+// "minimumFetchIntervalMillis" : un fetchAndActivate() pendant cette fenêtre
+// renvoie la valeur en cache, même si elle vient de changer côté console
+// Firebase. La valeur par défaut du SDK (12 h) retardait d'autant l'annonce
+// d'une mise à jour. On la ramène à 1 h en production (0 en développement) :
+// au plus une requête par heure et par téléphone, très en dessous des limites
+// de Firebase.
+const ANDROID_MIN_FETCH_INTERVAL_MS = __DEV__ ? 0 : 60 * 60 * 1000;
 
 type StoreInfo = {latestVersion: string; storeUrl: string};
 

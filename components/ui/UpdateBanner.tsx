@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Linking, Pressable, StyleSheet, Text} from 'react-native';
+import {AppState, Linking, Pressable, StyleSheet, Text} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
@@ -21,16 +21,26 @@ function UpdateBanner() {
     const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
     useEffect(() => {
-        // "isMounted" évite un setState après démontage si le composant
-        // disparaissait avant la fin de la vérification (peu probable ici
-        // puisque le layout racine ne se démonte jamais, mais reste une
-        // sécurité peu coûteuse).
+        // "isMounted" évite un setState après démontage.
         let isMounted = true;
-        AppUpdateService.checkForAppUpdate().then((info) => {
-            if (isMounted) setUpdateInfo(info);
+        const check = () => {
+            AppUpdateService.checkForAppUpdate().then((info) => {
+                if (isMounted) setUpdateInfo(info);
+            });
+        };
+
+        // Vérification au lancement, puis à chaque retour de l'app au premier
+        // plan : le layout racine ne se démonte jamais, donc sans cela une app
+        // laissée ouverte en arrière-plan n'apprenait jamais qu'une mise à
+        // jour était sortie.
+        check();
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') check();
         });
+
         return () => {
             isMounted = false;
+            subscription.remove();
         };
     }, []);
 
