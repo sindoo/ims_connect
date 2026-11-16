@@ -129,8 +129,8 @@
           "buildNumber": "26"
         },
         "android": {
-          "version": "0.0.111",
-          "versionCode": 111
+            "version": "0.0.112",
+          "versionCode": 112
         }
       },
       "eas": {
