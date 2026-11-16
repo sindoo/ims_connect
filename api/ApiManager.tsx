@@ -6,11 +6,11 @@ import {getOfflineReason, isNetworkError, reportRequestWithoutResponse, setOffli
 import {requestEnded, requestStarted} from './activity';
 
 // LOCAL CONFIG
-const AXIOS_BASEURL = 'https://ims.bagadis.com/api/v1'; // GOOD
+//const AXIOS_BASEURL = 'https://ims.bagadis.com/api/v1'; // GOOD
 
 
 // AWS CONFIG
-//const AXIOS_BASEURL = "https://ivorymontessorisystem.com/imsv3/api/v1"; // GOOD
+const AXIOS_BASEURL = "https://ivorymontessorisystem.com/imsv3/api/v1"; // GOOD
 
 axios.defaults.headers.post['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
@@ -66,7 +66,11 @@ interceptorIds.response = axios.interceptors.response.use(
         // Le serveur a répondu (même en erreur) : la connexion fonctionne
         setOffline(false);
       }
-      captureApiError(error);
+      // Le test de connexion (pingServer) attend une réponse quelconque, y compris
+      // 403/404 : ce n'est pas une erreur à signaler à Sentry.
+      if (!(error?.config as any)?.__connectivityCheck) {
+        captureApiError(error);
+      }
       return Promise.reject(error);
     },
 );
@@ -76,7 +80,7 @@ interceptorIds.response = axios.interceptors.response.use(
 // est rétablie : l'intercepteur ci-dessus met alors à jour l'état.
 export const pingServer = async () => {
   try {
-    await axios.get(AXIOS_BASEURL, {timeout: 8000});
+    await axios.get(AXIOS_BASEURL, {timeout: 8000, __connectivityCheck: true} as any);
   } catch {
     // l'intercepteur a déjà mis à jour l'état de connexion
   }
