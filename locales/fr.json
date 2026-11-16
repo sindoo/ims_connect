@@ -216,7 +216,32 @@
         "profile": "Profil",
         "settings": "Paramètres",
         "edit_password": "Mon mot de passe",
-        "title_edit_password": "Changer mon mot de passe"
+        "title_edit_password": "Changer mon mot de passe",
+        "edit_username": "Mon nom d'utilisateur",
+        "title_edit_username": "Changer mon nom d'utilisateur"
+    },
+    "usernameChange": {
+        "new_label": "Nouveau nom d'utilisateur",
+        "new_placeholder": "Saisissez le nom souhaité",
+        "checking": "Vérification de la disponibilité…",
+        "available": "Ce nom d'utilisateur est disponible.",
+        "unavailable": "Ce nom d'utilisateur n'est pas disponible.",
+        "same_as_current": "C'est déjà votre nom d'utilisateur.",
+        "too_short": "3 caractères minimum.",
+        "suggestions": "Noms disponibles :",
+        "check_error": "Impossible de vérifier la disponibilité.",
+        "password_label": "Confirmez avec votre mot de passe",
+        "password_required": "Saisissez votre mot de passe.",
+        "password_error": "Mot de passe incorrect",
+        "current": "Nom d'utilisateur actuel",
+        "choose": "Choisissez un nouveau nom d'utilisateur",
+        "empty": "Aucun autre nom d'utilisateur n'est disponible pour le moment.",
+        "load_error": "Impossible de charger les noms d'utilisateur disponibles.",
+        "retry": "Réessayer",
+        "select_required": "Sélectionnez un nom d'utilisateur.",
+        "success": "Votre nom d'utilisateur a été modifié.",
+        "not_available": "Ce nom d'utilisateur n'est plus disponible. Choisissez-en un autre.",
+        "login_hint": "Vous utiliserez ce nouveau nom d'utilisateur lors de votre prochaine connexion."
     },
     "settings":  {
         "language": "Langue",

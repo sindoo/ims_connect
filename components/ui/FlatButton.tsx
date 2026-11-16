@@ -11,6 +11,7 @@ export default function FlatButton({
   paddingVertical,
   borderRadius,
   disabled = false,
+  loading,
 }: {
   title: any;
   onPress: any;
@@ -20,7 +21,12 @@ export default function FlatButton({
   paddingVertical: any;
   borderRadius: any;
   disabled?: boolean;
+  // Affiche l'indicateur de chargement. Par défaut (non précisé), il suit
+  // "disabled", comme avant. Passer loading={false} permet un bouton
+  // simplement inactif (grisé, libellé visible) sans indicateur.
+  loading?: boolean;
 }) {
+  const showSpinner = loading ?? disabled;
   return (
     <TouchableOpacity onPress={onPress} disabled={disabled}>
       <View
@@ -29,12 +35,13 @@ export default function FlatButton({
             backgroundColor: backgroundColor,
             paddingVertical: paddingVertical,
             borderRadius: borderRadius,
+            opacity: disabled && !showSpinner ? 0.5 : 1,
         }}>
-          {disabled && (
+          {showSpinner && (
               <ActivityIndicator size={"small"} color={COLORS.white}/>
           )}
 
-          {!disabled && (
+          {!showSpinner && (
               // @ts-ignore
               <Text style={{...styles.buttomText}}>
                   {title}

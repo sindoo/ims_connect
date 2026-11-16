@@ -102,6 +102,35 @@ const DrawerLayout = () => {
                     },
                 }}
             />
+
+            <Drawer.Screen
+                name="username/index"
+                options={{
+                    drawerLabel: t('drawer.edit_username'),
+                    drawerIcon: () => (
+                        <MaterialIcons name="alternate-email" size={24} color={theme.drawerIconColor} /> as any
+                    ),
+                    drawerLabelStyle: globalStyles.drawerLinkItem,
+                    drawerItemStyle: {
+                        marginTop: 0,
+                        marginBottom: -5,
+                        padding: 0,
+                    },
+                    drawerActiveTintColor: COLORS.white,
+                    drawerStyle: {
+                        width: '75%',
+                    },
+                    header: () => {
+                        return (
+                            <CustomHeaderWithButton
+                                handleBackRoute={handleBackRoute}
+                                title={t('drawer.edit_username')}
+                                backRouteName="/(drawer)/(tabs)"
+                            />
+                        ) as any;
+                    },
+                }}
+            />
         </Drawer>
     );
 };

@@ -216,7 +216,32 @@
         "profile": "Profile",
         "settings": "Settings",
         "edit_password": "My password",
-        "title_edit_password": "Change my password"
+        "title_edit_password": "Change my password",
+        "edit_username": "My username",
+        "title_edit_username": "Change my username"
+    },
+    "usernameChange": {
+        "new_label": "New username",
+        "new_placeholder": "Enter the username you want",
+        "checking": "Checking availability…",
+        "available": "This username is available.",
+        "unavailable": "This username is not available.",
+        "same_as_current": "This is already your username.",
+        "too_short": "At least 3 characters.",
+        "suggestions": "Available usernames:",
+        "check_error": "Unable to check availability.",
+        "password_label": "Confirm with your password",
+        "password_required": "Enter your password.",
+        "password_error": "Incorrect password",
+        "current": "Current username",
+        "choose": "Choose a new username",
+        "empty": "No other username is available at the moment.",
+        "load_error": "Unable to load the available usernames.",
+        "retry": "Retry",
+        "select_required": "Select a username.",
+        "success": "Your username has been changed.",
+        "not_available": "This username is no longer available. Please choose another one.",
+        "login_hint": "You will use this new username the next time you sign in."
     },
     "settings":  {
         "language": "Language",
