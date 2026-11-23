@@ -307,7 +307,14 @@ function PresetAppointmentDetails({
 
     return (
         <View style={styles.container}>
-            <View style={styles.detailsContanier}>
+            {/* Toute la page défile (description longue incluse) : sinon la zone
+                des créneaux et les boutons Annuler/Enregistrer n'étaient plus
+                atteignables quand la description prenait tout l'écran. */}
+            <ScrollView
+                style={styles.detailsContanier}
+                contentContainerStyle={styles.detailsContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator>
                 <View>
                     <View style={styles.appointmentDetails}>
                         <View style={styles.appointmentInfoContainer}>
@@ -386,7 +393,7 @@ function PresetAppointmentDetails({
                 </View>
 
                 <View style={styles.creneauxRdv}>
-                    <ScrollView style={styles.creneauxRdvScroll}>
+                    <View>
                         {deadlineMeeting ? (
                             <View style={styles.containerCreneauxRdv}>
                                 <Text style={{color: COLORS.gray, marginBottom: 5}}>
@@ -505,9 +512,9 @@ function PresetAppointmentDetails({
                                 </Text>
                             </View>
                         )}
-                    </ScrollView>
+                    </View>
                 </View>
-            </View>
+            </ScrollView>
         </View>
     );
 }
@@ -523,6 +530,9 @@ const styles = StyleSheet.create({
     },
     detailsContanier: {
         flex: 1,
+    },
+    detailsContent: {
+        paddingBottom: 40,
     },
     appointmentDetails: {
         flexDirection: 'row',
@@ -545,11 +555,7 @@ const styles = StyleSheet.create({
         paddingRight: 15,
     },
     creneauxRdv: {
-        flex: 1,
         marginTop: 20,
-    },
-    creneauxRdvScroll: {
-        flex: 1,
     },
     containerCreneauxRdv: {
         paddingLeft: 15,
