@@ -4,6 +4,7 @@ import {captureApiError, captureMissingParam} from '../services/sentryService';
 import i18next from '../i18next/i18next';
 import {getOfflineReason, isNetworkError, reportRequestWithoutResponse, setOffline} from './connectivity';
 import {requestEnded, requestStarted} from './activity';
+import {serverErrorMessage} from './serverErrors';
 
 // LOCAL CONFIG
 //const AXIOS_BASEURL = 'https://ims.bagadis.com/api/v1'; // GOOD
@@ -149,7 +150,9 @@ export const apiErrorMessage = (error: any, fallback: string): string => {
         ? i18next.t('snackBar.sb_server_unreachable')
         : i18next.t('snackBar.sb_no_connection');
   }
-  return fallback;
+  // Erreur connue du serveur (dictionnaire des codes) : message précis ; sinon
+  // le message habituel de l'écran.
+  return serverErrorMessage(error) ?? fallback;
 };
 
 export const getAuthToken = async () => {

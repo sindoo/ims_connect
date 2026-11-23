@@ -7,10 +7,21 @@ import { useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { postRequest, putRequest, setAuthToken, apiErrorMessage } from "../../api/ApiManager";
 import { isNetworkError } from "../../api/connectivity";
+import { serverErrorMessage } from "../../api/serverErrors";
 import { setUserFCMToken, setUserSliceToken, loginUser } from "../../redux/features/user/userSlice";
 import { getUserChildren } from "../../redux/features/child/childSlice";
 import { getFcmToken } from "../../services/notificationService";
 import { updateHeaderNotificationEveryWhere } from "../../services/GeneralService";
+
+// Causes d'échec de connexion précisées à l'utilisateur ; toute autre erreur garde le message habituel.
+const LOGIN_SPECIFIC_ERROR_CODES = [
+    'ACCOUNT_JWT_LOCKED',
+    'ACCOUNT_JWT_DISABLED',
+    'ACCOUNT_JWT_EXPIRED',
+    'PERMISSION_EXCEPTION',
+    'SERVICE_UNAVAILABLE',
+];
+
 
 const Login = () => {
     const router = useRouter();
@@ -63,7 +74,12 @@ const Login = () => {
             if (isNetworkError(error)) {
                 setErrorMessage(apiErrorMessage(error, t('snackBar.sb_no_connection')));
             } else {
-                setErrorMessage(t('login.acces_error'));
+                // Causes précises uniquement (compte verrouillé, désactivé, expiré, droits,
+                // serveur indisponible). Identifiants faux ou toute autre erreur : message
+                // habituel, qui ne précise pas si c'est le nom ou le mot de passe.
+                setErrorMessage(
+                    serverErrorMessage(error, LOGIN_SPECIFIC_ERROR_CODES) ?? t('login.acces_error'),
+                );
             }
             setButtonStatus(false);
             console.log(JSON.stringify(error));

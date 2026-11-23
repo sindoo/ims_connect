@@ -26,6 +26,7 @@ import AppointmentService from "../../../services/AppointmentService";
 import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
 import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
 import {request, apiErrorMessage} from "../../../api/ApiManager";
+import {serverErrorMessage} from "../../../api/serverErrors";
 import {captureFeatureError} from "../../../services/sentryService";
 import {globalStyles} from "../../../style/Global";
 import FlatButton from "../../ui/FlatButton";
@@ -298,6 +299,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         const serverData = error.response?.data;
         const status = error.response?.status;
         const errorMessage = (error?.isMissingParam ? error.message : null)
+            || serverErrorMessage(error)
             || serverData?.message
             || (serverData?.codeMessage ? `${t('snackBar.sb_error')} (${serverData.codeMessage})` : null)
             || (status ? `${t('snackBar.sb_error')} (${status})` : apiErrorMessage(error, t('snackBar.sb_no_connection')));

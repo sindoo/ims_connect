@@ -10,6 +10,7 @@ import {
 import {useTranslation} from "react-i18next";
 import {useDispatch, useSelector} from "react-redux";
 import ExchangeLibraryService from "../../../../../services/ExchangeLibraryService";
+import {apiErrorMessage} from "../../../../../api/ApiManager";
 import {setChildBorrowedBooksList, setChildHistoryBooksList} from "../../../../../redux/features/book/bookSlice";
 import {checkTokenExpired} from "../../../../../services/GeneralService";
 import Loading from "../../../../../components/ui/Loading";
@@ -421,6 +422,10 @@ function AllBook(props) {
                 const msgToDisplay = error.response.data;
                 if (msgToDisplay?.codeMessage === 'SIZE_EXCEPTION') {
                     snackbarShowMessage(t('more.book_not_available'));
+                } else {
+                    // Autre refus du serveur (déjà emprunté, livre introuvable…) :
+                    // on prévient l'utilisateur au lieu de ne rien afficher.
+                    snackbarShowMessage(apiErrorMessage(error, t('snackBar.sb_error')));
                 }
             } else {
                 snackbarShowMessage(t('snackBar.sb_error_deadline_exceeded'));
