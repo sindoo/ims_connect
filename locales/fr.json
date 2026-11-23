@@ -167,7 +167,8 @@
         "time_availbale": "Choix du créneau horaire",
         "label_time_slot": "Horaire(s) disponible(s)",
         "no_action_available": "Au-delà de la durée de modification définie par l'admin, aucune action n'est possible",
-        "choice_slot_done": "Choix effectué"
+        "choice_slot_done": "Choix effectué",
+        "no_slot_available": "Aucun horaire disponible pour le moment."
     },
     "appointmentDetails": {
         "save_btn": "Enregistrer",

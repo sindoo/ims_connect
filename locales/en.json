@@ -167,7 +167,8 @@
         "time_availbale": "Choose an available time slot",
         "label_time_slot": "Available time slot",
         "no_action_available": "Beyond the duration of modification defined by the admin, no action is possible",
-        "choice_slot_done": "Choice done"
+        "choice_slot_done": "Choice done",
+        "no_slot_available": "No time slot is available at the moment."
     },
     "appointmentDetails": {
         "save_btn": "Save",

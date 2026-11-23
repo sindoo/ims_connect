@@ -46,6 +46,9 @@ function PresetAppointmentDetails({
     const [statusButtonCancel, setStatusButtonCancel] = useState(false);
     const dispatch = useDispatch();
     const [deadlineMeeting, setDeadlineMeeting] = useState(false);
+    // Passe à true une fois la liste des créneaux calculée : évite d'afficher
+    // « aucun horaire disponible » le temps du premier rendu, avant le calcul.
+    const [creneauxLoaded, setCreneauxLoaded] = useState(false);
     const [creneauRdvChoiceSelect, setCreneauRdvChoiceSelect] = useState<any>(undefined);
 
     // Recharge le rdv depuis le serveur et met à jour le store : l'écran (créneau
@@ -299,6 +302,9 @@ function PresetAppointmentDetails({
             catch (error) {
                 console.log(error);
             }
+            finally {
+                setCreneauxLoaded(true);
+            }
         };
         fetchData().catch(error => {
             console.log(error);
@@ -409,6 +415,17 @@ function PresetAppointmentDetails({
                                     }
                                 />
 
+                                {/* Aucun horaire libre : on le dit au parent. Pas affiché s'il a
+                                    déjà un choix confirmé (son créneau n'est alors plus « libre »,
+                                    ce qui ne veut pas dire qu'il n'y a rien d'autre à choisir). */}
+                                {creneauxLoaded && creneauxRdvList.length === 0 && creneauRdvChoiceSelect === undefined && (
+                                    <View style={styles.noSlotContainer}>
+                                        <Text style={styles.noSlotText}>
+                                            {t('presetAppointment.no_slot_available')}
+                                        </Text>
+                                    </View>
+                                )}
+
                                 <View style={{marginTop: 30, marginBottom: 10}}>
                                     <View style={styles.buttomContainer}>
                                         {/* LEFT BUTTON [CANCEL PRESET] */}
@@ -478,9 +495,10 @@ function PresetAppointmentDetails({
                                                 </>
                                             ) : (
                                                 <>
+                                                    {/* Grisé tant qu'aucun créneau n'est sélectionné */}
                                                     <TouchableOpacity
                                                         style={
-                                                            saveEditButtom
+                                                            saveEditButtom || creneauSelected === null
                                                                 ? {...styles.buttom, ...styles.buttonCancelDisable}
                                                                 : {
                                                                     ...styles.buttom,
@@ -488,10 +506,10 @@ function PresetAppointmentDetails({
                                                                 }
                                                         }
                                                         onPress={() => handleCreneauSelectionSubmit()}
-                                                        disabled={saveEditButtom}>
+                                                        disabled={saveEditButtom || creneauSelected === null}>
                                                         <Text
                                                             style={
-                                                                saveEditButtom
+                                                                saveEditButtom || creneauSelected === null
                                                                     ? styles.buttonCancelDisableText
                                                                     : styles.buttomTextRight
                                                             }>
@@ -556,6 +574,18 @@ const styles = StyleSheet.create({
     },
     creneauxRdv: {
         marginTop: 20,
+    },
+    noSlotContainer: {
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: COLORS.grayLight,
+        backgroundColor: COLORS.grayVeryLight,
+    },
+    noSlotText: {
+        color: COLORS.gray,
+        textAlign: 'center',
     },
     containerCreneauxRdv: {
         paddingLeft: 15,
