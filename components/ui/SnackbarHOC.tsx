@@ -4,7 +4,7 @@ import {COLORS} from '../../constants';
 import {MaterialCommunityIcons} from "@expo/vector-icons";
 
 export const withSnackbar = (WrappedComponent: any) => {
-  return (props: any) => {
+  return function WithSnackbar(props: any) {
     const [message, setMessage] = useState("I'm a custom snackbar");
     const [duration, setDuration] = useState(2000);
 

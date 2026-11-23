@@ -553,6 +553,7 @@ const ImsDaySection = React.memo(({ imsDayInfo, i18n, router }) => {
         </View>
     );
 });
+ImsDaySection.displayName = 'ImsDaySection';
 
 // ----------------------------------------------------------------------------
 // Bloc "Menu du jour" : flèches de navigation semaine courante <-> semaine
@@ -676,6 +677,7 @@ const MenuSection = React.memo(({
         </>
     );
 });
+MenuSection.displayName = 'MenuSection';
 
 // ----------------------------------------------------------------------------
 // Bloc "Prochains rendez-vous" : affiche jusqu'à 3 rendez-vous (déjà limités
@@ -752,6 +754,7 @@ const AppointmentSection = React.memo(({ appointments, employeesClassList, selec
         </View>
     );
 });
+AppointmentSection.displayName = 'AppointmentSection';
 
 // ----------------------------------------------------------------------------
 // Composant principal de l'écran d'accueil.

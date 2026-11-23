@@ -39,6 +39,7 @@ import {
 import { globalStyles } from "../../../style/Global";
 import {updateHeaderNotificationEveryWhere} from "../../../services/GeneralService";
 import AppointmentService from "../../../services/AppointmentService";
+import ConversationService from "../../../services/ConversationService";
 import {setAppointmentDetailsInRedux} from "../../../redux/features/appointment/appointmentSlice";
 import {router} from "expo-router";
 
@@ -124,6 +125,7 @@ const ReadNotReadNotificationFilter = React.memo(({
         </View>
     );
 });
+ReadNotReadNotificationFilter.displayName = 'ReadNotReadNotificationFilter';
 
 const FilterNotificationType = React.memo(({
                                                filterType,
@@ -169,6 +171,7 @@ const FilterNotificationType = React.memo(({
         </View>
     );
 });
+FilterNotificationType.displayName = 'FilterNotificationType';
 
 // ===== Composant d'élément de notification optimisé =====
 const NotificationItem = React.memo(({
@@ -178,7 +181,7 @@ const NotificationItem = React.memo(({
                                          isDeleting,
                                          isNavigating,
                                          language,
-                                         children,
+                                         childrenList,
                                          t
                                      }: {
     notification: Notification;
@@ -187,7 +190,7 @@ const NotificationItem = React.memo(({
     isDeleting: boolean;
     isNavigating: boolean;
     language: string;
-    children: Child[];
+    childrenList: Child[];
     t: (key: string) => string;
 }) => {
     const notificationMsg = useMemo(() => {
@@ -224,14 +227,14 @@ const NotificationItem = React.memo(({
             message?.creneauRdvs?.[0]?.creneauRdvEnfantParents?.[0]?.enfantId;
 
         if (childId) {
-            const found = (children || []).find((child: any) => child?.person?.id === childId);
+            const found = (childrenList || []).find((child: any) => child?.person?.id === childId);
             if (found) return fullName(found);
         }
 
         // Sondage destiné à des classes : enfants inscrits dans ces classes
         if (typeof message?.classes === 'string') {
             const classIds = message.classes.split(',').map((id: string) => parseInt(id));
-            const names = (children || [])
+            const names = (childrenList || [])
                 .filter((child: any) => classIds.includes(child?.eleves?.[0]?.classe?.id))
                 .map(fullName);
             if (names.length > 0) return names.join(', ');
@@ -239,13 +242,13 @@ const NotificationItem = React.memo(({
 
         // Alerte : `nom` contient le nom complet de l'enfant (on n'en garde que le prénom)
         if (notification?.common?.tag === 'alertmessage' && typeof message?.nom === 'string') {
-            const found = (children || []).find(
+            const found = (childrenList || []).find(
                 (child: any) => `${child?.person?.prenom ?? ''} ${child?.person?.nom ?? ''}`.trim() === message.nom.trim(),
             );
             return found ? fullName(found) : message.nom.trim().split(' ')[0];
         }
         return '';
-    }, [notification, children]);
+    }, [notification, childrenList]);
 
     const notificationDate = useMemo(() => toDate(notification.dateSent), [notification.dateSent]);
 
@@ -330,6 +333,7 @@ const NotificationItem = React.memo(({
         </TouchableOpacity>
     );
 });
+NotificationItem.displayName = 'NotificationItem';
 
 // Petit délai avant la navigation (laisse le temps à la modale/au clavier
 // de se refermer visuellement). Retourne une Promise pour pouvoir
@@ -719,8 +723,11 @@ const Notification = () => {
 
     const handleMessageCenterNavigation = useCallback(async (message: any) => {
         try {
-            const space = message?.space;
-            const threadId = space?.id;
+            // Deux formes de notification : la conversation (message.space) ou
+            // un message (filDiscussionId + enfantId, sans objet space).
+            let space = message?.space;
+            const threadId = space?.id ?? message?.filDiscussionId;
+            const enfantId = space?.enfantId ?? message?.enfantId;
 
             // Sans conversation identifiable, on prévient l'utilisateur au lieu
             // de ne rien faire, et on remonte la structure reçue à Sentry.
@@ -733,7 +740,21 @@ const Notification = () => {
                 return;
             }
 
-            handleChangeChild(space?.enfantId);
+            handleChangeChild(enfantId);
+
+            // Sans objet space, on récupère la conversation pour l'écran Message.
+            if (!space) {
+                const child = children.find((c: Child) => String(c?.id) === String(enfantId));
+                space = await ConversationService.getDiscussionById(threadId, user, child);
+                if (!space) {
+                    showSnackbar(t('notification.conversation_not_found'), 'error');
+                    captureFeatureError('notification.message_center.thread_not_found', null, {
+                        threadId: String(threadId),
+                        enfantId: enfantId != null ? String(enfantId) : null,
+                    });
+                    return;
+                }
+            }
 
             const pathname = '/pages/message';
             await delay(NAVIGATION_DELAY_MS);
@@ -751,7 +772,7 @@ const Notification = () => {
             showSnackbar(t('notification.conversation_not_found'), 'error');
             captureFeatureError('notification.message_center.navigation', error, {});
         }
-    }, [children, handleChangeChild, showSnackbar, t]);
+    }, [children, user, handleChangeChild, showSnackbar, t]);
 
 
     // ✅ Suppression effective de toutes les notifications, déclenchée
@@ -838,7 +859,7 @@ const Notification = () => {
             isDeleting={deletingIds.has(item.id)}
             isNavigating={navigatingIds.has(item.id)}
             language={i18n.language}
-            children={children}
+            childrenList={children}
             t={t}
         />
     ), [handleNotificationNavigation, requestDeleteNotification, deletingIds, navigatingIds, i18n.language, children, t]);

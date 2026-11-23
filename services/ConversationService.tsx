@@ -16,6 +16,23 @@ class ConversationService {
         }
         return discussionList;
     };
+    // Retrouve une conversation par son id quand la notification ne fournit
+    // que filDiscussionId / enfantId (sans l'objet "space" complet).
+    static getDiscussionById = async (threadId: number | string, user: any, child: any) => {
+        const person = user?.userDetails?.personDetails?.person;
+        const dataToSend = {
+            userId: user?.id,
+            uuid: user?.uuid,
+            personId: person?.id,
+            nom: `${person?.nom} ${person?.prenom}`,
+            role: user?.role,
+            connexionDate: 0,
+            genre: person?.sexe,
+            enfantNom: child?.person ? `${child.person.nom} ${child.person.prenom}` : undefined,
+        };
+        const list = await ConversationService.getUserDiscussionList(dataToSend);
+        return list.find((thread: any) => String(thread?.id) === String(threadId)) ?? null;
+    };
     static getChildDiscussionList = async (selectedChildID: number, classId: number, data: any) => {
 
         let discussionList: any = [];
