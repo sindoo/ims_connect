@@ -71,6 +71,8 @@ class ExchangeLibraryService {
           : [];
       return await ExchangeLibraryService.formatBorrowBooksList(resultList);
   }
+  static keepBooksInGoodState = (bookList: any[]) =>
+      (Array.isArray(bookList) ? bookList : []).filter((book: any) => book?.common?.etat === 'OK');
   static getBookDataByPageNumber = async (page:number, size:number) => {
       const booksRequest: any = await getRequest(
           '',
@@ -78,11 +80,15 @@ class ExchangeLibraryService {
       );
       let results:any = [];
       if(booksRequest._embedded !== undefined){
-          let bookList:[] = booksRequest?._embedded.livreDTOModelList;
+          const rawBookList:any[] = Array.isArray(booksRequest?._embedded.livreDTOModelList)
+              ? booksRequest?._embedded.livreDTOModelList
+              : [];
+          // Seuls les livres en bon état (common.etat = 'OK') sont proposés
+          const bookList:any[] = ExchangeLibraryService.keepBooksInGoodState(rawBookList);
           const totalBookItems:number = booksRequest?.page?.totalElements;
           const totalPages:number = booksRequest?.page?.totalPages;
 
-          results = [bookList, totalBookItems, totalPages];
+          results = [bookList, totalBookItems, totalPages, rawBookList.length];
       }
       return results;
   };
@@ -99,7 +105,7 @@ class ExchangeLibraryService {
       const booksRequest: any = await postRequest('', '/extra/bibliotheque/search', filterApi);
 
       let booksFounded = booksRequest?.content !== undefined
-          ? booksRequest?.content
+          ? ExchangeLibraryService.keepBooksInGoodState(booksRequest?.content)
           : [];
 
       let bookList:any = [];

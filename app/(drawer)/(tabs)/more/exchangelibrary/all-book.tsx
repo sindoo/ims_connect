@@ -174,8 +174,8 @@ function AllBook(props) {
         try {
             const bookReq = await ExchangeLibraryService.getBookDataByPageNumber(page, ITEM_PER_PAGE);
             if (bookReq.length > 0) {
-                const [bookList, totalBookItems, totalBookListPage] = bookReq;
-                return { bookList, totalBookItems, totalBookListPage, status: 200 };
+                const [bookList, totalBookItems, totalBookListPage, rawBookCount] = bookReq;
+                return { bookList, totalBookItems, totalBookListPage, rawBookCount, status: 200 };
             }
             return { status: 400, bookList: [] };
         } catch (error) {
@@ -251,6 +251,13 @@ function AllBook(props) {
                         return sortBooksByNom(merged);
                     });
 
+                    if (totalBook === 0 && result.totalBookItems) {
+                        setTotalBook(result.totalBookItems);
+                        setBookListPages(result.totalBookListPage || 0);
+                    }
+                } else if (result.status === 200 && (result.rawBookCount ?? 0) > 0) {
+                    // Page reçue mais sans livre en bon état : on la considère lue
+                    // (sinon la même page serait redemandée en boucle).
                     if (totalBook === 0 && result.totalBookItems) {
                         setTotalBook(result.totalBookItems);
                         setBookListPages(result.totalBookListPage || 0);
