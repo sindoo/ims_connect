@@ -519,7 +519,15 @@ const AppointmentDetails = (props) => {
                                     paddingVertical={12}
                                     borderRadius={5}
                                     onPress={() => {
-                                        router.push('');
+                                        // Même navigation que depuis la liste des rdv prédéfinis :
+                                        // le rdv est déjà dans le store (appointmentDetailsInRedux).
+                                        router.push({
+                                            pathname: '/pages/appointment/preset-appointment-details',
+                                            params: {
+                                                data: JSON.stringify(appointmentDetailsInRedux?.id),
+                                                location: '',
+                                            },
+                                        });
                                     }}
                                     disabled={false}
                                 />
