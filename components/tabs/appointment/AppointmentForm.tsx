@@ -27,6 +27,8 @@ import {COLORS, CONSTANT, TIME_ZONE_ABIDJAN} from "../../../constants";
 import {addNewAppointment} from "../../../redux/features/appointment/appointmentSlice";
 import {request, apiErrorMessage} from "../../../api/ApiManager";
 import {serverErrorMessage} from "../../../api/serverErrors";
+import {checkTokenExpired} from "../../../services/GeneralService";
+import AuthenticationService from "../../../services/AuthenticationService";
 import {captureFeatureError} from "../../../services/sentryService";
 import {globalStyles} from "../../../style/Global";
 import FlatButton from "../../ui/FlatButton";
@@ -76,7 +78,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                                                          }) => {
   const {t, i18n} = useTranslation();
   const dispatch = useDispatch();
-  const {user} = useSelector((state: any) => state.user);
+  const {user, userToken} = useSelector((state: any) => state.user);
 
   // États
   const [date, setDate] = useState(new Date());
@@ -298,8 +300,16 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       } else {
         const serverData = error.response?.data;
         const status = error.response?.status;
+        // 401 sans cause précise connue (compte verrouillé, etc.) : le plus souvent une
+        // session expirée. Si le jeton est bien périmé, déconnexion comme sur les autres
+        // écrans ; sinon message invitant à se reconnecter.
+        const sessionIssue = status === 401 && !serverErrorMessage(error);
+        if (sessionIssue && AuthenticationService.checkTokenValidity(userToken)) {
+          checkTokenExpired(userToken, dispatch);
+        }
         const errorMessage = (error?.isMissingParam ? error.message : null)
             || serverErrorMessage(error)
+            || (sessionIssue ? t('snackBar.sb_session_expired') : null)
             || serverData?.message
             || (serverData?.codeMessage ? `${t('snackBar.sb_error')} (${serverData.codeMessage})` : null)
             || (status ? `${t('snackBar.sb_error')} (${status})` : apiErrorMessage(error, t('snackBar.sb_no_connection')));
@@ -317,7 +327,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     } finally {
       setButtonStatus(false);
     }
-  }, [startTimeValue, selectedChild, date, startTime, endTime, parentId, dispatch, setAddModal, resetDateTimeFields, t, isDayValid, isDateValid, showSnackbar]);
+  }, [startTimeValue, selectedChild, date, startTime, endTime, parentId, dispatch, userToken, setAddModal, resetDateTimeFields, t, isDayValid, isDateValid, showSnackbar]);
 
   // Mémorisation du champ enfant
   const childName = useMemo(() => {

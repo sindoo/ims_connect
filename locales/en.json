@@ -391,7 +391,8 @@
         "sb_cancel": "Time slot cancel",
         "sb_success_save_book": "Book request sended",
         "sb_success_password": "Successful modification. An email has been sent to you",
-        "sb_error_deadline_exceeded": "The response time has passed"
+        "sb_error_deadline_exceeded": "The response time has passed",
+        "sb_session_expired": "Your session has expired. Please sign in again to continue."
     },
     "systemTranslation": {
         "tab_nav_more": "More",

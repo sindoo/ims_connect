@@ -390,7 +390,8 @@
         "sb_cancel": "Créneau horaire annulé",
         "sb_success_save_book": "Demande de livre effectuée avec succes",
         "sb_success_password": "Succès de la modification. Un email vous a été envoyé",
-        "sb_error_deadline_exceeded": "Le délai de réponse est passé"
+        "sb_error_deadline_exceeded": "Le délai de réponse est passé",
+        "sb_session_expired": "Votre session a expiré. Reconnectez-vous pour continuer."
     },
     "systemTranslation": {
         "tab_nav_more": "Plus",
