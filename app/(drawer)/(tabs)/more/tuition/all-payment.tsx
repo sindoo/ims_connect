@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
     FlatList,
     Keyboard,
@@ -20,6 +20,32 @@ import TuitionYearForm from "../../../../../components/tabs/more/tuition/Tuition
 import PaymentTypeForm from "../../../../../components/tabs/more/tuition/PaymentTypeForm";
 import PaymentItem from "../../../../../components/tabs/more/tuition/PaymentItem";
 
+// La reponse groupsenfants est un tableau (un enfant peut avoir plusieurs groupes
+// sur une annee). On accepte aussi l'ancien format (objet seul) par securite.
+const toGroupList = (groupReq: any): any[] => {
+    if (Array.isArray(groupReq)) {
+        return groupReq.filter((group: any) => group?.groupesectionId !== undefined && group?.groupesectionId !== null);
+    }
+    if (groupReq?.groupesectionId !== undefined && groupReq?.groupesectionId !== null) {
+        return [groupReq];
+    }
+    return [];
+};
+
+const sumAmounts = (list: any[]) => {
+    const total = {montantFacture: 0, montantPayer: 0, montantSolde: 0};
+    list.forEach((item: any) => {
+        total.montantFacture += Number(item?.montantFacture) || 0;
+        total.montantPayer += Number(item?.montantPayer) || 0;
+        total.montantSolde += Number(item?.montantSolde) || 0;
+    });
+    return {
+        montantFacture: new Intl.NumberFormat('fr-FR').format(total.montantFacture),
+        montantPayer: new Intl.NumberFormat('fr-FR').format(total.montantPayer),
+        montantSolde: new Intl.NumberFormat('fr-FR').format(total.montantSolde),
+    };
+};
+
 function PaymentList(props) {
     const [openTypeForm, setOpenTypeForm] = useState(false);
     const [paymentTypeValue, setPaymentTypeValue] = useState<any>(null);
@@ -31,6 +57,8 @@ function PaymentList(props) {
     const [paymentOriginalList, setPaymentOriginalList] = useState<any>([]);
     const [loading, setLoading] = useState(true);
     const [tuitionCurrentYear, setTuitionCurrentYear] = useState<any>(null);
+    // groupId -> ids des types de frais proposes dans ce groupe (annee courante)
+    const groupFeesTypeIdsRef = useRef<Map<number, number[]>>(new Map());
     const [tuitionFeesAmount, setTuitionFeesAmount] =
         useState<TPaymentAmountProps | null>({
             montantFacture: '0',
@@ -53,27 +81,26 @@ function PaymentList(props) {
     const handleTuitionFeesAmountPaymentList = useCallback(async (tuitionYearId: number, tuitionFeesTypeId: number) => {
         try {
             const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
-            if(groupIdReq !== undefined) {
-                // GET CHILD TUITION FEES AMOUNT
-                const groupId = groupIdReq.groupesectionId;
-                const childTuitionInfo = await PaymentService.getTuitionFeesAmountByTuitionTypeId(
-                    selectedChild.person.id,
-                    groupId,
-                    tuitionFeesTypeId,
-                    tuitionYearId
+            const groupList = toGroupList(groupIdReq);
+            if(groupList.length > 0) {
+                // GET CHILD TUITION FEES AMOUNT : somme sur les groupes qui
+                // proposent ce type de frais (si la liste des types d'un groupe
+                // n'est pas connue, on l'interroge quand meme).
+                const concernedGroups = groupList.filter((group: any) => {
+                    const typeIds = groupFeesTypeIdsRef.current.get(group.groupesectionId);
+                    return typeIds === undefined || typeIds.includes(tuitionFeesTypeId);
+                });
+                const amountsList = await Promise.all(
+                    concernedGroups.map((group: any) =>
+                        PaymentService.getTuitionFeesAmountByTuitionTypeId(
+                            selectedChild.person.id,
+                            group.groupesectionId,
+                            tuitionFeesTypeId,
+                            tuitionYearId
+                        )
+                    )
                 );
-                const feesStatus = {
-                    montantFacture: new Intl.NumberFormat('fr-FR').format(
-                        childTuitionInfo?.montantFacture,
-                    ),
-                    montantPayer: new Intl.NumberFormat('fr-FR').format(
-                        childTuitionInfo?.montantPayer,
-                    ),
-                    montantSolde: new Intl.NumberFormat('fr-FR').format(
-                        childTuitionInfo?.montantSolde,
-                    ),
-                };
-                setTuitionFeesAmount(feesStatus);
+                setTuitionFeesAmount(sumAmounts(amountsList));
 
                 // GET CHILD PAYMENT LIST BY TUITION TYPE SELECTED
                 const filterPaymentList = paymentOriginalList.filter(
@@ -119,45 +146,56 @@ function PaymentList(props) {
                             PaymentService.getTuitionFeesType(),
                             PaymentService.getTuitionDataGroupYear(selectedChild.person.id, currentYear.id),
                         ]);
-                        if(groupIdReq !== undefined) {
-                            const groupId = groupIdReq.groupesectionId;
+                        const groupList = toGroupList(groupIdReq);
+                        if(groupList.length > 0) {
                             const today = getTime(new Date());
 
-                            // GET CHILD TUITION FEES + PAYMENT LIST : ces deux
-                            // appels sont eux aussi independants (aucun ne
-                            // depend du resultat de l'autre), on les parallelise.
-                            const [childTuitionFeesData, paymentListList] = await Promise.all([
-                                PaymentService.getChildTuitionFees(selectedChild.person.id, groupId, currentYear.id),
-                                PaymentService.getAllChildPayment(selectedChild.person.id, groupId, currentYear.id, today),
-                            ]);
+                            // GET CHILD TUITION FEES + PAYMENT LIST pour chaque groupe
+                            // (appels independants, tous lances en parallele).
+                            const groupResults = await Promise.all(
+                                groupList.map(async (group: any) => {
+                                    const groupId = group.groupesectionId;
+                                    const [childTuitionFeesData, paymentListList] = await Promise.all([
+                                        PaymentService.getChildTuitionFees(selectedChild.person.id, groupId, currentYear.id),
+                                        PaymentService.getAllChildPayment(selectedChild.person.id, groupId, currentYear.id, today),
+                                    ]);
+                                    return {groupId, childTuitionFeesData, paymentListList};
+                                }),
+                            );
 
-                            const tuitionFeesDataList: any = PaymentService.reformatTuitionFees(tuitionFeesTypeData, childTuitionFeesData);
+                            // Types de frais : union de ceux de tous les groupes (sans doublon)
+                            groupFeesTypeIdsRef.current = new Map();
+                            const tuitionFeesDataList: any = [];
+                            const allPayments: any = [];
+                            groupResults.forEach(({groupId, childTuitionFeesData, paymentListList}) => {
+                                groupFeesTypeIdsRef.current.set(
+                                    groupId,
+                                    Array.isArray(childTuitionFeesData?.scolariteTypeIds) ? childTuitionFeesData.scolariteTypeIds : [],
+                                );
+                                const groupFees: any = PaymentService.reformatTuitionFees(
+                                    tuitionFeesTypeData,
+                                    childTuitionFeesData ?? {scolariteTypeIds: []},
+                                );
+                                groupFees.forEach((fees: any) => {
+                                    if (!tuitionFeesDataList.some((existing: any) => existing.id === fees.id)) {
+                                        tuitionFeesDataList.push(fees);
+                                    }
+                                });
+                                if (Array.isArray(paymentListList)) {
+                                    allPayments.push(...paymentListList);
+                                }
+                            });
                             setPaymentTypeData(tuitionFeesDataList);
 
                             const paymentListFormatted = await PaymentService.reformatChildPaymentList(
-                                paymentListList,
+                                allPayments,
                                 tuitionFeesDataList,
                             );
                             setSchoolingPaymentList(paymentListFormatted);
                             setPaymentOriginalList(paymentListFormatted);
 
-                            // GET CHILD TUITION FEES AMOUNT : on reutilise
-                            // childTuitionFeesData deja recupere ci-dessus au
-                            // lieu de rappeler exactement la meme requete
-                            // PaymentService.getChildTuitionFees(...) une
-                            // seconde fois (appel redondant supprime).
-                            const feesStatus = {
-                                montantFacture: new Intl.NumberFormat('fr-FR').format(
-                                    childTuitionFeesData?.montantFacture,
-                                ),
-                                montantPayer: new Intl.NumberFormat('fr-FR').format(
-                                    childTuitionFeesData?.montantPayer,
-                                ),
-                                montantSolde: new Intl.NumberFormat('fr-FR').format(
-                                    childTuitionFeesData?.montantSolde,
-                                ),
-                            };
-                            setTuitionFeesAmount(feesStatus);
+                            // GET CHILD TUITION FEES AMOUNT : somme des montants de tous les groupes
+                            setTuitionFeesAmount(sumAmounts(groupResults.map(({childTuitionFeesData}) => childTuitionFeesData)));
                         }
                     }
                 }

@@ -1,8 +1,9 @@
 import {getRequest} from "../api/ApiManager";
+import {shareInFlight} from "../api/shareInFlight";
 import {getTime} from "date-fns";
 
 class PaymentService {
-  static getTuitionYears = async () => {
+  static getTuitionYears = () => shareInFlight('tuitionYears', async () => {
     const tuitionYearReq = await getRequest('', '/corebase/mix/general/scolariteannees=-1');
     const tuitionYearData = Array.isArray(tuitionYearReq?.scolariteannees) ? tuitionYearReq?.scolariteannees : [];
     let tuitionYearArray = [];
@@ -16,7 +17,7 @@ class PaymentService {
       })
     }
     return tuitionYearArray;
-  };
+  });
   static getCurrentTuitionYear = (data: any) => {
     let currentTuitionYear = null;
     if(data.length > 0) {
@@ -27,10 +28,10 @@ class PaymentService {
     }
     return currentTuitionYear;
   };
-  static getTuitionFeesType = async () => {
+  static getTuitionFeesType = () => shareInFlight('tuitionFeesType', async () => {
     const tuitionFeesReq = await getRequest('', '/extra/scolaritelistfrais');
     return Array.isArray(tuitionFeesReq._embedded?.scolariteTypeDTOModelList) ? tuitionFeesReq._embedded?.scolariteTypeDTOModelList : [];
-  };
+  });
   static getTuitionFeesTypeIdByTag = (tuitionFeesData: any) => {
     return tuitionFeesData.find(
         (tuitionFees: any) => tuitionFees.common.tag === 'schooling',
@@ -43,9 +44,9 @@ class PaymentService {
         `/extra/scolaritenfant/etatoutfrais/laDate/${today}/enfant/${childId}/groupId/${groupId}/${scolariteAnneeId}`,
     );
   };
-  static getTuitionDataGroupYear = async (childId: number, tuitionYearId: number) => {
-    return await getRequest('', `/extra/groupsenfants/enfant/${childId}/${tuitionYearId}`);
-  };
+  static getTuitionDataGroupYear = (childId: number, tuitionYearId: number) =>
+    shareInFlight(`tuitionGroupYear:${childId}:${tuitionYearId}`, () =>
+      getRequest('', `/extra/groupsenfants/enfant/${childId}/${tuitionYearId}`));
   static reformatTuitionFees = (tuitionFeesTypeList: any, tuitionFeesIdList: any) => {
     const schoolingFeesDataList: any = [];
     let feesData = {value: 0, label: ''};
@@ -127,6 +128,17 @@ class PaymentService {
         '',
         `/extra/scolaritenfant/etatparfrais/laDate/${today}/enfant/${childId}/group/${groupId}/scolaritetype/${tuitionTypeId}/${tuitionYearId}`,
     );
+  };
+  // La reponse groupsenfants est un tableau (un enfant peut avoir plusieurs groupes
+  // sur une annee). L'ancien format (objet seul) reste accepte par securite.
+  static getGroupList = (groupReq: any): any[] => {
+    if (Array.isArray(groupReq)) {
+      return groupReq.filter((group: any) => group?.groupesectionId !== undefined && group?.groupesectionId !== null);
+    }
+    if (groupReq?.groupesectionId !== undefined && groupReq?.groupesectionId !== null) {
+      return [groupReq];
+    }
+    return [];
   };
   static getAllChildProforma = async (childId: number, groupId: number, tuitionYearId: number) => {
     const proformaListReq = await getRequest(

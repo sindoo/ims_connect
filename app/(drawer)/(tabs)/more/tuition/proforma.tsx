@@ -23,9 +23,15 @@ function Proforma({navigation}: TPaymentItemProps) {
     const fetchProformaForYear = useCallback(async (tuitionYearId: number) => {
         if(selectedChild !== null) {
             const groupIdReq = await PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId);
-            if(groupIdReq !== undefined) {
-                const groupId = groupIdReq.groupesectionId;
-                const proformaData = await PaymentService.getAllChildProforma(selectedChild.person.id, groupId, tuitionYearId);
+            const groupList = PaymentService.getGroupList(groupIdReq);
+            if(groupList.length > 0) {
+                // Un proforma par groupe, regroupes dans une seule liste
+                const proformaByGroup = await Promise.all(
+                    groupList.map((group: any) =>
+                        PaymentService.getAllChildProforma(selectedChild.person.id, group.groupesectionId, tuitionYearId)
+                    )
+                );
+                const proformaData: any = proformaByGroup.flatMap((list: any) => Array.isArray(list) ? list : []);
                 setProformaList(proformaData);
             }
         }

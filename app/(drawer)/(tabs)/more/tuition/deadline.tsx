@@ -29,11 +29,17 @@ function Deadline() {
                 PaymentService.getTuitionDataGroupYear(selectedChild.person.id, tuitionYearId),
                 PaymentService.getTuitionFeesType(),
             ]);
-            if(groupIdReq !== undefined && tuitionFeesTypeData.length > 0) {
-                const groupId = groupIdReq.groupesectionId;
+            const groupList = PaymentService.getGroupList(groupIdReq);
+            if(groupList.length > 0 && tuitionFeesTypeData.length > 0) {
                 const tuitionFeesType = PaymentService.getTuitionFeesTypeIdByTag(tuitionFeesTypeData);
                 if(tuitionFeesType !== undefined) {
-                    const deadlineListReq = await PaymentService.getDeadlineByChild(selectedChild.person.id, groupId, tuitionYearId, tuitionFeesType.id);
+                    // Un echeancier par groupe, regroupes dans une seule liste
+                    const deadlineListByGroup = await Promise.all(
+                        groupList.map((group: any) =>
+                            PaymentService.getDeadlineByChild(selectedChild.person.id, group.groupesectionId, tuitionYearId, tuitionFeesType.id)
+                        )
+                    );
+                    const deadlineListReq: any = deadlineListByGroup.flatMap((list: any) => Array.isArray(list) ? list : []);
                     setEcheancierList(deadlineListReq);
 
                     const amountDeadline = PaymentService.getSumOfAllDeadlineByChild(deadlineListReq);
