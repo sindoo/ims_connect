@@ -115,7 +115,7 @@ const AppNav = () => {
                                         return (
                                             <CustomHeaderWithButton
                                                 handleBackRoute={handleBackRoute}
-                                                title={t('appointment.details_title')}
+                                                title={t('more.payment_details')}
                                                 backRouteName="more/tuition/all-payment"
                                             />
                                         ) as any;

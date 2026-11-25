@@ -1,5 +1,5 @@
-import React from 'react';
-import {Linking, StyleSheet, Text, View} from 'react-native';
+import React, {useState} from 'react';
+import {Alert, StyleSheet, Text, View} from 'react-native';
 import {useTranslation} from "react-i18next";
 import {format} from "date-fns";
 import {BASEURL_IMG} from "../../../../api/appUrl";
@@ -7,6 +7,7 @@ import {globalStyles} from "../../../../style/Global";
 import {COLORS, PAYMENT_MODE_EN, PAYMENT_MODE_FR} from "../../../../constants";
 import FlatButton from "../../../../components/ui/FlatButton";
 import {useSelector} from "react-redux";
+import {downloadDocumentToDevice} from "../../../../services/FileDownloadService";
 
 
 function PaymentDetails(props) {
@@ -16,8 +17,28 @@ function PaymentDetails(props) {
     const amount = new Intl.NumberFormat('fr-FR').format(paymentDetailsInRedux?.montant);
     const datePayment = format(paymentDetailsInRedux?.ladate, 'dd/MM/yyyy');
 
-    const seeReceipt = (data: any) => {
-        Linking.openURL(`${BASEURL_IMG}/${data?.recu}`);
+    const [receiptLoading, setReceiptLoading] = useState(false);
+
+    // Même procédé que « Document scolaire » : le reçu est téléchargé puis enregistré
+    // sur le téléphone (dossier choisi sur Android, feuille de partage sur iOS).
+    const seeReceipt = async (data: any) => {
+        if (receiptLoading) return;
+        setReceiptLoading(true);
+        try {
+            const fileName = String(data?.code || data?.nom || 'recu-paiement');
+            const result = await downloadDocumentToDevice(
+                `${BASEURL_IMG}/${data?.recu}`,
+                `${fileName}.pdf`,
+            );
+            if (result === 'saved') {
+                Alert.alert(t('schoolDocument.save_title'), t('schoolDocument.save_message'));
+            }
+        } catch (error) {
+            console.log('[PaymentDetails] Enregistrement du reçu impossible:', error);
+            Alert.alert(t('more.payment_receipt_error_title'), t('more.payment_receipt_error_message'));
+        } finally {
+            setReceiptLoading(false);
+        }
     };
 
     return (
@@ -103,7 +124,7 @@ function PaymentDetails(props) {
                             paddingVertical={12}
                             borderRadius={20}
                             onPress={() => seeReceipt(paymentDetailsInRedux)}
-                            disabled={false}
+                            disabled={receiptLoading}
                         />
                     </View>
                 )}
