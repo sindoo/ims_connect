@@ -17,7 +17,7 @@ import Loading from "../../../../../components/ui/Loading";
 import {COLORS} from "../../../../../constants";
 import {globalStyles} from "../../../../../style/Global";
 import TuitionYearForm from "../../../../../components/tabs/more/tuition/TuitionYearForm";
-import PaymentTypeForm from "../../../../../components/tabs/more/tuition/PaymentTypeForm";
+// import PaymentTypeForm from "../../../../../components/tabs/more/tuition/PaymentTypeForm"; // champ « Type de paiement » masqué
 import PaymentItem from "../../../../../components/tabs/more/tuition/PaymentItem";
 
 // La reponse groupsenfants est un tableau (un enfant peut avoir plusieurs groupes
@@ -47,8 +47,9 @@ const sumAmounts = (list: any[]) => {
 };
 
 function PaymentList(props) {
-    const [openTypeForm, setOpenTypeForm] = useState(false);
-    const [paymentTypeValue, setPaymentTypeValue] = useState<any>(null);
+    // const [openTypeForm, setOpenTypeForm] = useState(false); // champ « Type de paiement » masqué
+    // const [paymentTypeValue, setPaymentTypeValue] = useState<any>(null);
+    const paymentTypeValue: any = null; // valeur fixe tant que le champ « Type de paiement » est masqué
     const [paymentTypeData, setPaymentTypeData] = useState<any>([]);
     const [openTuitionYearForm, setOpenTuitionYearForm] = useState(false);
     const [tuitionYearValue, setTuitionYearValue] = useState<any>(null);
@@ -121,11 +122,12 @@ function PaymentList(props) {
         setLoading(false);
     }, [handleTuitionFeesAmountPaymentList, paymentTypeValue]);
 
-    const onChangePaymentTypeValue = useCallback(async (tuitionFeesTypeId: any) => {
-        setLoading(true);
-        await handleTuitionFeesAmountPaymentList(tuitionYearValue, tuitionFeesTypeId);
-        setLoading(false);
-    }, [handleTuitionFeesAmountPaymentList, tuitionYearValue]);
+    // Champ « Type de paiement » masqué : handler en commentaire.
+    // const onChangePaymentTypeValue = useCallback(async (tuitionFeesTypeId: any) => {
+    //     setLoading(true);
+    //     await handleTuitionFeesAmountPaymentList(tuitionYearValue, tuitionFeesTypeId);
+    //     setLoading(false);
+    // }, [handleTuitionFeesAmountPaymentList, tuitionYearValue]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -242,44 +244,53 @@ function PaymentList(props) {
                     onChangeValue={onTuitionYearValueChange}
                 />
 
-                <PaymentTypeForm
-                    open={openTypeForm}
-                    value={paymentTypeValue}
-                    items={paymentTypeData}
-                    setOpen={setOpenTypeForm}
-                    setValue={setPaymentTypeValue}
-                    setItems={setPaymentTypeData}
-                    onChangeValue={onChangePaymentTypeValue}
-                />
-                <View style={styles.paymentStatus}>
-                    <View style={styles.feeBox}>
-                        <View style={styles.feeRow}>
-                            <Text style={styles.feeLabel}>
-                                {t('more.fees_amount')} :
-                            </Text>
-                            <Text style={styles.feeLabel}>
-                                {tuitionFeesAmount?.montantFacture} {t('more.payment_devise')}
-                            </Text>
-                        </View>
+                {/*
+                    <PaymentTypeForm
+                        open={openTypeForm}
+                        value={paymentTypeValue}
+                        items={paymentTypeData}
+                        setOpen={setOpenTypeForm}
+                        setValue={setPaymentTypeValue}
+                        setItems={setPaymentTypeData}
+                        onChangeValue={onChangePaymentTypeValue}
+                    />
+                */}
 
-                        <View style={styles.feeRow}>
-                            <Text style={styles.feeLabel}>
-                                {t('more.schooling_total_payment')} :
-                            </Text>
-                            <Text style={styles.feeLabel}>
-                                {tuitionFeesAmount?.montantPayer} {t('more.payment_devise')}
-                            </Text>
-                        </View>
+                {/*
+                    <View style={styles.paymentStatus}>
+                        <View style={styles.feeBox}>
+                            <View style={styles.feeRow}>
+                                <Text style={styles.feeLabel}>
+                                    {t('more.fees_amount')} :
+                                </Text>
+                                <Text style={styles.feeLabel}>
+                                    {tuitionFeesAmount?.montantFacture} {t('more.payment_devise')}
+                                </Text>
+                            </View>
 
-                        <View style={styles.feeRow}>
-                            <Text style={styles.feeLabel}>
-                                {t('more.schooling_payment_balance')} :
-                            </Text>
-                            <Text style={styles.feeLabel}>
-                                {tuitionFeesAmount?.montantSolde} {t('more.payment_devise')}
-                            </Text>
+                            <View style={styles.feeRow}>
+                                <Text style={styles.feeLabel}>
+                                    {t('more.schooling_total_payment')} :
+                                </Text>
+                                <Text style={styles.feeLabel}>
+                                    {tuitionFeesAmount?.montantPayer} {t('more.payment_devise')}
+                                </Text>
+                            </View>
+
+                            <View style={styles.feeRow}>
+                                <Text style={styles.feeLabel}>
+                                    {t('more.schooling_payment_balance')} :
+                                </Text>
+                                <Text style={styles.feeLabel}>
+                                    {tuitionFeesAmount?.montantSolde} {t('more.payment_devise')}
+                                </Text>
+                            </View>
                         </View>
                     </View>
+                */}
+
+                <View style={styles.container} key={2}>
+                    <Text style={styles.inputLabel}>{t('more.payment_list')}</Text>
                 </View>
                 <FlatList
                     style={styles.listContainer}
@@ -296,11 +307,15 @@ function PaymentList(props) {
 export default PaymentList;
 
 const styles = StyleSheet.create({
+    container: {
+        paddingHorizontal: 15,
+        paddingTop: 15,
+    },
     listContainer: {
         flex: 1,
-        paddingTop: 15,
-        paddingLeft: 15,
-        paddingRight: 15,
+        paddingTop: 5,
+        paddingLeft: 14,
+        paddingRight: 14,
     },
     paymentStatus: {
         padding: 15,
@@ -322,5 +337,11 @@ const styles = StyleSheet.create({
     emptyText: {
         flex: 1,
         textAlign: 'center',
+    },
+    inputLabel: {
+        color: COLORS.gray,
+        marginBottom: 5,
+        fontWeight: 'normal',
+        fontSize: 15,
     },
 });
