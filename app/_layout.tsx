@@ -15,8 +15,9 @@ import {
 } from "../services/notificationService";
 import * as Notifications from 'expo-notifications';
 import {AppState, Platform, View} from 'react-native';
-import { updateHeaderNotificationEveryWhere } from "../services/GeneralService";
+import { updateHeaderNotificationEveryWhere, checkTokenExpired } from "../services/GeneralService";
 import { store } from "../redux/store";
+import { getAuthToken } from "../api/ApiManager";
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import UpdateBanner from "../components/ui/UpdateBanner";
@@ -147,6 +148,21 @@ const RootLayout = () => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (BACKGROUND_STATE_REGEX.test(appState.current) && nextAppState === 'active') {
                 console.log('📱 App au premier plan');
+
+                // ✅ Retour au premier plan : on vérifie tout de suite que la session est
+                // toujours valide, avant toute action de l'utilisateur. Si le token a
+                // expiré pendant que l'app était en arrière-plan, l'utilisateur est
+                // déconnecté et ramené à l'écran de connexion (comme au démarrage).
+                // Aucun anti-rebond ici : c'est un simple calcul local, sans appel réseau.
+                (async () => {
+                    try {
+                        const storedToken = await getAuthToken();
+                        const currentToken = storedToken ?? store.getState().user?.userToken ?? null;
+                        checkTokenExpired(currentToken, store.dispatch);
+                    } catch (error) {
+                        console.log('Erreur vérification du token au premier plan:', error);
+                    }
+                })();
 
                 // ✅ Mettre à jour les notifications quand l'app revient au premier plan,
                 // avec un anti-rebond pour éviter des appels réseau en rafale
