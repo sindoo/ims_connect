@@ -402,23 +402,28 @@ function PresetAppointmentDetails({
                     <View>
                         {deadlineMeeting ? (
                             <View style={styles.containerCreneauxRdv}>
-                                <Text style={{color: COLORS.gray, marginBottom: 5}}>
-                                    {t('presetAppointment.time_availbale')}
-                                </Text>
-                                <SelectFieldAppointment
-                                    data={creneauxRdvList}
-                                    //defaultValue={creneauChoiceSelected}
-                                    placeholder={t('presetAppointment.label_time_slot')}
-                                    disabled={creneauxRdvList.length <= 0}
-                                    onSelect={(item: any, index: number) =>
-                                        handleUserSelectChange(item, index)
-                                    }
-                                />
+                                {/* Libellé + champ masqués quand aucun horaire n'est disponible
+                                    (le message « aucun horaire » ci-dessous les remplace). */}
+                                {!(creneauxLoaded && creneauxRdvList.length === 0) && (
+                                    <>
+                                        <Text style={{color: COLORS.gray, marginBottom: 5}}>
+                                            {t('presetAppointment.time_availbale')}
+                                        </Text>
+                                        <SelectFieldAppointment
+                                            data={creneauxRdvList}
+                                            //defaultValue={creneauChoiceSelected}
+                                            placeholder={t('presetAppointment.label_time_slot')}
+                                            disabled={creneauxRdvList.length <= 0}
+                                            onSelect={(item: any, index: number) =>
+                                                handleUserSelectChange(item, index)
+                                            }
+                                        />
+                                    </>
+                                )}
 
-                                {/* Aucun horaire libre : on le dit au parent. Pas affiché s'il a
-                                    déjà un choix confirmé (son créneau n'est alors plus « libre »,
-                                    ce qui ne veut pas dire qu'il n'y a rien d'autre à choisir). */}
-                                {creneauxLoaded && creneauxRdvList.length === 0 && creneauRdvChoiceSelect === undefined && (
+                                {/* Aucun horaire libre : on le dit au parent, y compris s'il a déjà
+                                    un choix confirmé (il n'a alors pas d'autre créneau à choisir). */}
+                                {creneauxLoaded && creneauxRdvList.length === 0 && (
                                     <View style={styles.noSlotContainer}>
                                         <Text style={styles.noSlotText}>
                                             {t('presetAppointment.no_slot_available')}
